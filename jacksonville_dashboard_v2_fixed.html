@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jacksonville Resource Desert Analysis — 2026 Datathon</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+:root {
+  --white: #fff;
+  --gray-light: #f0f0f0;
+  --gray: #ddd;
+  --gray-dark: #999;
+  --black: #333;
+  
+  --red: #cc0000;
+  --red-light: #ffeeee;
+  --orange: #cc6600;
+  --orange-light: #fff5e6;
+  --green: #009933;
+  --green-light: #e6ffe6;
+  --blue: #0066cc;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  background: #f5f5f5;
+  color: var(--black);
+  font-family: Arial, sans-serif;
+  font-size: 13px;
+}
+
+/* TOP BAR */
+.topbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+  height: 50px;
+  background: #336699;
+  display: flex; align-items: center;
+  padding: 0 15px;
+  gap: 15px;
+}
+.topbar-brand {
+  font-weight: bold; font-size: 16px;
+  color: white;
+}
+.topbar-brand span { color: #ffcc00; }
+.topbar-divider { width: 1px; height: 25px; background: #4477aa; }
+.topbar-meta {
+  font-size: 11px; color: #aaccee;
+}
+.topbar-kpis {
+  display: flex; margin-left: auto;
+}
+.topbar-kpi {
+  padding: 0 15px; border-left: 1px solid #4477aa;
+  text-align: center;
+}
+.topbar-kpi-val {
+  font-weight: bold; font-size: 14px; color: white;
+}
+.topbar-kpi-label { 
+  font-size: 9px; color: #aaccee; margin-top: 2px; 
+  text-transform: uppercase;
+}
+
+.nav-tabs {
+  display: flex; gap: 5px; margin-left: 15px; margin-right: 15px;
+}
+.nav-tab {
+  padding: 8px 15px;
+  font-size: 12px; font-weight: bold; cursor: pointer;
+  color: #aaccee;
+  background: transparent; border: none;
+}
+.nav-tab:hover { color: white; }
+.nav-tab.active { color: #ffcc00; background: #224466; }
+
+/* MAIN LAYOUT */
+.layout {
+  display: flex;
+  height: 100vh;
+  padding-top: 50px;
+}
+
+/* LEFT PANEL */
+.left-panel {
+  width: 300px;
+  background: white;
+  border-right: 2px solid #ccc;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.panel-header {
+  padding: 12px 15px;
+  border-bottom: 2px solid #ccc;
+  background: #f9f9f9;
+}
+.panel-header-title {
+  font-weight: bold; font-size: 14px;
+  color: #336699;
+}
+.panel-header-sub { font-size: 11px; color: #666; margin-top: 3px; }
+
+.filter-strip {
+  display: flex; gap: 8px; padding: 10px 15px;
+  border-bottom: 2px solid #ccc;
+  background: #f0f0f0;
+}
+.filter-chip {
+  flex: 1; padding: 6px;
+  font-size: 10px; font-weight: bold; cursor: pointer;
+  border: 2px solid; 
+  text-align: center;
+  text-transform: uppercase;
+  background: white;
+}
+.fc-desert { border-color: var(--red); color: var(--red); }
+.fc-desert.on { background: var(--red-light); }
+.fc-atrisk { border-color: var(--orange); color: var(--orange); }
+.fc-atrisk.on { background: var(--orange-light); }
+.fc-control { border-color: var(--green); color: var(--green); }
+.fc-control.on { background: var(--green-light); }
+
+.zip-scroll {
+  overflow-y: auto; flex: 1;
+}
+.zip-scroll::-webkit-scrollbar { width: 10px; }
+.zip-scroll::-webkit-scrollbar-track { background: #eee; }
+.zip-scroll::-webkit-scrollbar-thumb { background: #999; }
+
+.zip-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 15px; cursor: pointer;
+  border-bottom: 1px solid #ddd;
+  background: white;
+}
+.zip-row:hover { background: #f5f5f5; }
+.zip-row.active { background: #e6f0ff; border-left: 4px solid #336699; }
+.zip-badge {
+  width: 50px;
+  font-weight: bold; font-size: 14px;
+}
+.zip-row.desert .zip-badge { color: var(--red); }
+.zip-row.atrisk .zip-badge { color: var(--orange); }
+.zip-row.control .zip-badge { color: var(--green); }
+.zip-info { flex: 1; }
+.zip-name { font-size: 10px; font-weight: bold; text-transform: uppercase; color: #666; }
+.zip-stats { font-size: 11px; color: #444; margin-top: 2px; }
+.zip-index-bar { width: 50px; }
+.zip-index-track { height: 6px; background: #ddd; }
+.zip-index-fill { height: 6px; }
+.zip-index-val { font-size: 9px; color: #666; margin-top: 2px; text-align: right; }
+
+/* MAP AREA */
+.map-area {
+  flex: 1; position: relative; overflow: hidden;
+}
+#map {
+  width: 100%; height: 100%;
+}
+
+.leaflet-container { background: #e0e0e0; font-family: Arial, sans-serif; }
+.leaflet-popup-content-wrapper {
+  border: 2px solid #336699;
+  font-family: Arial, sans-serif;
+}
+.leaflet-popup-content { margin: 0; }
+
+/* RIGHT PANEL */
+.right-panel {
+  width: 320px;
+  background: white;
+  border-left: 2px solid #ccc;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+#detail-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+.detail-empty {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  color: #999; text-align: center;
+  padding: 30px;
+}
+.detail-empty svg { opacity: 0.3; }
+.detail-empty p { font-size: 12px; margin-top: 10px; }
+
+.detail-content { overflow-y: auto; flex: 1; min-height: 0; }
+.detail-content::-webkit-scrollbar { width: 10px; }
+.detail-content::-webkit-scrollbar-track { background: #eee; }
+.detail-content::-webkit-scrollbar-thumb { background: #999; }
+
+.detail-header-block {
+  padding: 15px;
+  border-bottom: 2px solid #ccc;
+  background: #f9f9f9;
+}
+.detail-zip-row { display: flex; justify-content: space-between; }
+.detail-zip-num {
+  font-weight: bold; font-size: 28px;
+}
+.detail-cls-badge {
+  font-size: 10px; font-weight: bold;
+  text-transform: uppercase; padding: 4px 8px;
+  display: inline-block; margin-top: 5px;
+  border: 1px solid;
+}
+.dcb-desert { background: var(--red-light); color: var(--red); border-color: var(--red); }
+.dcb-atrisk { background: var(--orange-light); color: var(--orange); border-color: var(--orange); }
+.dcb-control { background: var(--green-light); color: var(--green); border-color: var(--green); }
+.detail-index-block { text-align: right; }
+.detail-index-num {
+  font-weight: bold; font-size: 24px;
+  color: var(--black);
+}
+.detail-index-lbl { font-size: 10px; color: #666; text-transform: uppercase; margin-top: 3px; }
+.detail-desc { font-size: 12px; color: #444; line-height: 1.5; margin-top: 10px; }
+
+/* Pillars */
+.pillars-block {
+  padding: 12px 15px;
+  border-bottom: 2px solid #ccc;
+  background: #f5f5f5;
+}
+.block-title {
+  font-size: 10px; font-weight: bold;
+  text-transform: uppercase; color: #666; margin-bottom: 10px;
+}
+.pillar-row { margin-bottom: 10px; }
+.pillar-top { display: flex; justify-content: space-between; margin-bottom: 4px; }
+.pillar-name { font-size: 12px; font-weight: bold; }
+.pillar-score { font-size: 12px; font-weight: bold; }
+.pillar-track { height: 8px; background: #ddd; }
+.pillar-fill { height: 100%; }
+.pillar-sub { font-size: 10px; color: #888; margin-top: 3px; }
+
+/* Metric cards */
+.metrics-block {
+  padding: 12px 15px;
+  border-bottom: 2px solid #ccc;
+}
+.metrics-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.metric-tile {
+  background: #f5f5f5;
+  border: 1px solid #ccc;
+  padding: 10px;
+}
+.metric-tile-val {
+  font-weight: bold; font-size: 18px;
+}
+.metric-tile-label { font-size: 10px; color: #666; margin-top: 4px; }
+.metric-tile-diff { font-size: 10px; margin-top: 4px; font-weight: bold; }
+.diff-worse { color: var(--red); }
+.diff-better { color: var(--green); }
+.diff-neutral { color: #999; }
+
+/* Compare bars */
+.compare-block { padding: 12px 15px; border-bottom: 2px solid #ccc; }
+.cbar-row { margin-bottom: 10px; }
+.cbar-label-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+.cbar-name { font-size: 11px; color: #444; }
+.cbar-vals { font-size: 11px; display: flex; gap: 10px; font-weight: bold; }
+.cbar-track { height: 8px; background: #ddd; margin-bottom: 2px; }
+.cbar-fill { height: 100%; }
+
+/* SCATTER VIEW */
+#view-scatter, #view-chain {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  background: #f0f0f0;
+  overflow-y: auto; display: none; z-index: 5;
+  padding: 20px;
+}
+.scatter-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+.chart-card {
+  background: white;
+  border: 2px solid #ccc;
+  padding: 15px;
+}
+.chart-card-title {
+  font-size: 14px; font-weight: bold; color: #336699;
+  margin-bottom: 3px;
+}
+.chart-card-sub { font-size: 11px; color: #666; margin-bottom: 15px; }
+.chart-canvas-wrapper {
+  position: relative;
+  height: 280px;
+  width: 100%;
+}
+.chart-card canvas { 
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* CHAIN VIEW */
+.chain-grid { display: flex; gap: 10px; margin-bottom: 20px; overflow-x: auto; }
+.chain-card {
+  min-width: 170px; flex: 1;
+  background: white; border: 2px solid #ccc;
+  padding: 12px;
+  position: relative;
+}
+.chain-card::after {
+  content: '→'; position: absolute; right: -8px; top: 50%; transform: translateY(-50%);
+  color: #999; font-size: 14px; font-weight: bold;
+}
+.chain-card:last-child::after { display: none; }
+.chain-layer-lbl { font-size: 9px; font-weight: bold; text-transform: uppercase; color: #999; margin-bottom: 5px; }
+.chain-card-title { font-size: 13px; font-weight: bold; margin-bottom: 10px; }
+.chain-item { font-size: 11px; color: #444; display: flex; gap: 5px; margin-bottom: 5px; }
+.chain-bullet { width: 6px; height: 6px; margin-top: 4px; }
+
+.insight-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+.insight-card {
+  background: white; border: 2px solid #ccc;
+  padding: 12px;
+  border-left: 5px solid #ccc;
+}
+.insight-card.critical { border-left-color: var(--red); }
+.insight-card.warning { border-left-color: var(--orange); }
+.insight-card.info { border-left-color: var(--blue); }
+.insight-head { font-size: 13px; font-weight: bold; margin-bottom: 8px; }
+.insight-body { font-size: 11px; color: #444; line-height: 1.4; }
+.insight-stat { font-size: 10px; color: #666; margin-top: 8px; font-weight: bold; }
+
+.section-head { font-weight: bold; font-size: 16px; color: #336699; margin-bottom: 15px; }
+
+/* MAP POPUP */
+.map-popup { min-width: 170px; padding: 10px; }
+.mp-zip { font-weight: bold; font-size: 16px; margin-bottom: 5px; }
+.mp-class { font-size: 9px; font-weight: bold; text-transform: uppercase; padding: 3px 6px; display: inline-block; margin-bottom: 8px; border: 1px solid; }
+.mp-row { display: flex; justify-content: space-between; font-size: 11px; padding: 4px 0; border-bottom: 1px solid #ddd; }
+.mp-row:last-child { border: none; }
+.mp-label { color: #666; }
+.mp-val { font-weight: bold; }
+
+/* MAP OVERLAY */
+.map-overlay {
+  position: absolute; top: 10px; right: 10px; z-index: 400;
+  background: white;
+  border: 2px solid #336699;
+  padding: 10px 12px;
+  min-width: 150px;
+}
+.overlay-title { font-size: 10px; font-weight: bold; text-transform: uppercase; color: #666; margin-bottom: 8px; }
+.overlay-item { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; font-size: 11px; color: #444; }
+.overlay-swatch { width: 14px; height: 14px; border: 1px solid #999; }
+.overlay-divider { height: 1px; background: #ccc; margin: 8px 0; }
+
+.map-scale {
+  position: absolute; bottom: 20px; left: 10px; z-index: 400;
+  background: white;
+  border: 1px solid #999;
+  padding: 5px 8px; font-size: 10px;
+  color: #666;
+}
+
+/* No animations */
+.animate { }
+
+/* Tooltip */
+#scatter-tooltip {
+  position: fixed; pointer-events: none; z-index: 9999;
+  background: white; border: 2px solid #336699;
+  padding: 10px;
+  display: none; font-size: 11px;
+  min-width: 140px;
+}
+.stt-zip { font-size: 14px; font-weight: bold; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="topbar-brand">Jacksonville <span>Resource Desert</span> Intelligence Dashboard</div>
+  <div class="topbar-divider"></div>
+  <div class="topbar-meta">2026 CodeforAwhile AI for Good Datathon · Duval County, FL</div>
+  <div class="topbar-kpis">
+    <div class="topbar-kpi"><div class="topbar-kpi-val">8</div><div class="topbar-kpi-label">Resource Deserts</div></div>
+    <div class="topbar-kpi"><div class="topbar-kpi-val">270K</div><div class="topbar-kpi-label">Residents Affected</div></div>
+    <div class="topbar-kpi"><div class="topbar-kpi-val">7.3yr</div><div class="topbar-kpi-label">Life Exp. Gap</div></div>
+    <div class="topbar-kpi"><div class="topbar-kpi-val">$48K</div><div class="topbar-kpi-label">Income Gap</div></div>
+    <div class="topbar-kpi"><div class="topbar-kpi-val">21K</div><div class="topbar-kpi-label">Uninsured Adults</div></div>
+  </div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="setView('map')">GIS Map</button>
+    <button class="nav-tab" onclick="setView('scatter')">Statistical Analysis</button>
+    <button class="nav-tab" onclick="setView('chain')">Causal Chain</button>
+  </div>
+</div>
+
+<div class="layout">
+  <!-- LEFT -->
+  <aside class="left-panel">
+    <div class="panel-header">
+      <div class="panel-header-title">ZIP Code Explorer</div>
+      <div class="panel-header-sub">Sorted by Resource Desert Index · Click to select</div>
+    </div>
+    <div class="filter-strip">
+      <div class="filter-chip fc-desert on" onclick="toggleFilter('desert',this)">DESERT</div>
+      <div class="filter-chip fc-atrisk on" onclick="toggleFilter('atrisk',this)">AT RISK</div>
+      <div class="filter-chip fc-control on" onclick="toggleFilter('control',this)">CONTROL</div>
+    </div>
+    <div class="zip-scroll" id="zip-list"></div>
+  </aside>
+
+  <!-- MAP -->
+  <div class="map-area">
+    <div id="map"></div>
+
+    <!-- Scatter / Chain overlays -->
+    <div id="view-scatter">
+      <div class="section-head">Statistical Evidence — Preventative Assets vs Health Outcomes</div>
+      <div class="scatter-grid">
+        <div class="chart-card">
+          <div class="chart-card-title">Median Income vs. Life Expectancy</div>
+          <div class="chart-card-sub">Pearson r = 0.750, p &lt; 0.001 *** · All 33 Jacksonville ZIP codes</div>
+          <div class="chart-canvas-wrapper"><canvas id="c1"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card-title">Physical Inactivity vs. Obesity Rate</div>
+          <div class="chart-card-sub">Pearson r = 0.987, p &lt; 0.001 *** · Near-perfect relationship</div>
+          <div class="chart-canvas-wrapper"><canvas id="c2"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card-title">Uninsured Rate vs. Life Expectancy</div>
+          <div class="chart-card-sub">Pearson r = −0.762, p &lt; 0.001 *** · Insurance is the gateway</div>
+          <div class="chart-canvas-wrapper"><canvas id="c3"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card-title">Resource Desert Index — All ZIPs Ranked</div>
+          <div class="chart-card-sub">Composite score (Healthcare 35% · Socioeconomic 30% · Food 20% · Environment 15%)</div>
+          <div class="chart-canvas-wrapper"><canvas id="c4"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="view-chain">
+      <div class="section-head">The Causal Chain — From Root Cause to Terminal Outcome</div>
+      <div class="chain-grid" id="chain-viz"></div>
+      <div class="section-head" style="margin-top:24px">Key Statistical Findings</div>
+      <div class="insight-grid" id="insight-grid"></div>
+    </div>
+
+    <!-- Map overlays -->
+    <div class="map-overlay" id="map-overlay">
+      <div class="overlay-title">Classification</div>
+      <div class="overlay-item"><div class="overlay-swatch" style="background:var(--desert);opacity:0.8"></div>Resource Desert (8 ZIPs)</div>
+      <div class="overlay-item"><div class="overlay-swatch" style="background:var(--atrisk);opacity:0.7"></div>At Risk (8 ZIPs)</div>
+      <div class="overlay-item"><div class="overlay-swatch" style="background:var(--control);opacity:0.6"></div>Control Group (8 ZIPs)</div>
+      <div class="overlay-item"><div class="overlay-swatch" style="background:#9baab8;opacity:0.5"></div>Other (9 ZIPs)</div>
+      <div class="overlay-divider"></div>
+      <div style="font-size:10px;color:var(--text-muted);line-height:1.5">
+        Overlay intensity reflects<br>Desert Index score.<br>Click any zone to explore.
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <aside class="right-panel">
+    <div class="panel-header">
+      <div class="panel-header-title">Zone Profile</div>
+      <div class="panel-header-sub">Select a ZIP to view full analysis</div>
+    </div>
+    <div id="detail-wrapper">
+      <div class="detail-empty">
+        <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+          <circle cx="20" cy="20" r="18" stroke="#c1c7d0" stroke-width="1.5"/>
+          <circle cx="20" cy="20" r="6" stroke="#c1c7d0" stroke-width="1.5"/>
+          <line x1="20" y1="2" x2="20" y2="10" stroke="#c1c7d0" stroke-width="1.5"/>
+          <line x1="20" y1="30" x2="20" y2="38" stroke="#c1c7d0" stroke-width="1.5"/>
+          <line x1="2" y1="20" x2="10" y2="20" stroke="#c1c7d0" stroke-width="1.5"/>
+          <line x1="30" y1="20" x2="38" y2="20" stroke="#c1c7d0" stroke-width="1.5"/>
+        </svg>
+        <p>Select a ZIP code from the map or the list on the left to view its full resource gap analysis and causal profile.</p>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<div id="scatter-tooltip"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+// ─────────────────────────────────────────────────────────
+// DATA
+// ─────────────────────────────────────────────────────────
+const DATA = [
+  {zip:"32202",cls:"desert",cluster:"northside",idx:0.592,hcGap:0.452,foodGap:0.234,envGap:0.930,socio:0.824,lifeExp:73.1,obesity:47.5,highBP:46.5,mental:25.3,smoking:31.8,inact:45.4,disab:48.9,fairH:41.1,uninsured:27.4,park:3.13,mhProv:33,pcpR:354,foodPct:22.0,airTox:36.3,traffic:225.6,pop:6023,income:34825,pov:23.2,hBurden:18.2,childFood:624,pedR:null,svi:0.931},
+  {zip:"32206",cls:"desert",cluster:"northside",idx:0.718,hcGap:0.408,foodGap:0.870,envGap:0.914,socio:0.880,lifeExp:70.7,obesity:46.3,highBP:48.1,mental:22.4,smoking:24.0,inact:40.9,disab:43.2,fairH:35.3,uninsured:18.9,park:2.90,mhProv:21,pcpR:815,foodPct:75.2,airTox:36.4,traffic:207.2,pop:17105,income:39242,pov:32.4,hBurden:17.2,childFood:4720,pedR:395,svi:0.950},
+  {zip:"32208",cls:"desert",cluster:"northside",idx:0.692,hcGap:0.394,foodGap:0.870,envGap:0.859,socio:0.837,lifeExp:70.8,obesity:45.7,highBP:50.6,mental:21.3,smoking:21.5,inact:40.7,disab:43.3,fairH:33.9,uninsured:17.4,park:3.40,mhProv:72,pcpR:991,foodPct:75.3,airTox:36.0,traffic:157.4,pop:32699,income:41324,pov:28.1,hBurden:18.2,childFood:7982,pedR:2922,svi:0.895},
+  {zip:"32209",cls:"desert",cluster:"northside",idx:0.696,hcGap:0.358,foodGap:0.656,envGap:0.977,socio:0.977,lifeExp:68.7,obesity:48.0,highBP:51.9,mental:22.8,smoking:23.3,inact:44.0,disab:46.3,fairH:37.6,uninsured:19.5,park:1.99,mhProv:54,pcpR:219,foodPct:57.3,airTox:42.6,traffic:218.2,pop:34657,income:30514,pov:37.6,hBurden:19.1,childFood:8986,pedR:151,svi:0.942},
+  {zip:"32254",cls:"desert",cluster:"northside",idx:0.754,hcGap:0.461,foodGap:0.952,envGap:0.872,socio:0.905,lifeExp:70.6,obesity:44.3,highBP:45.5,mental:23.0,smoking:24.4,inact:40.5,disab:43.0,fairH:34.1,uninsured:20.1,park:1.50,mhProv:90,pcpR:3482,foodPct:82.1,airTox:33.3,traffic:174.3,pop:13927,income:34953,pov:33.7,hBurden:17.4,childFood:3822,pedR:null,svi:0.932},
+  {zip:"32210",cls:"desert",cluster:"westside",idx:0.577,hcGap:0.361,foodGap:0.759,envGap:0.732,socio:0.629,lifeExp:74.9,obesity:37.4,highBP:38.1,mental:20.0,smoking:17.2,inact:31.4,disab:34.9,fairH:24.5,uninsured:15.8,park:2.26,mhProv:95,pcpR:1776,foodPct:66.0,airTox:24.7,traffic:100.3,pop:65729,income:61050,pov:16.5,hBurden:15.8,childFood:15464,pedR:3207,svi:0.843},
+  {zip:"32211",cls:"desert",cluster:"westside",idx:0.581,hcGap:0.373,foodGap:0.641,envGap:0.775,socio:0.689,lifeExp:75.3,obesity:38.6,highBP:38.1,mental:20.6,smoking:18.2,inact:32.9,disab:36.2,fairH:26.1,uninsured:18.0,park:2.09,mhProv:69,pcpR:1186,foodPct:56.1,airTox:26.1,traffic:132.4,pop:36762,income:57021,pov:22.6,hBurden:14.5,childFood:7354,pedR:2418,svi:0.886},
+  {zip:"32244",cls:"desert",cluster:"westside",idx:0.586,hcGap:0.415,foodGap:0.818,envGap:0.660,socio:0.595,lifeExp:75.6,obesity:36.4,highBP:36.2,mental:19.5,smoking:15.7,inact:29.7,disab:32.8,fairH:22.6,uninsured:15.2,park:9.88,mhProv:39,pcpR:2355,foodPct:70.9,airTox:25.0,traffic:87.5,pop:63592,income:62204,pov:16.1,hBurden:14.9,childFood:15612,pedR:3664,svi:0.772},
+  {zip:"32204",cls:"atrisk",cluster:"other",idx:0.499,hcGap:0.281,foodGap:0.476,envGap:0.726,socio:0.655,lifeExp:75.5,obesity:35.0,highBP:37.6,mental:19.1,smoking:15.3,inact:29.4,disab:35.1,fairH:23.4,uninsured:14.7,park:1.68,mhProv:83,pcpR:85,foodPct:42.3,airTox:20.4,traffic:120.7,pop:9151,income:65063,pov:18.9,hBurden:20.9,childFood:1201,pedR:27,svi:0.644},
+  {zip:"32205",cls:"atrisk",cluster:"other",idx:0.560,hcGap:0.356,foodGap:0.791,envGap:0.705,socio:0.571,lifeExp:74.2,obesity:33.7,highBP:33.2,mental:18.9,smoking:14.5,inact:25.4,disab:30.1,fairH:19.6,uninsured:12.7,park:2.02,mhProv:34,pcpR:1325,foodPct:68.6,airTox:19.7,traffic:107.3,pop:29148,income:64789,pov:15.6,hBurden:17.1,childFood:6074,pedR:2758,svi:0.596},
+  {zip:"32207",cls:"atrisk",cluster:"other",idx:0.453,hcGap:0.078,foodGap:0.733,envGap:0.724,socio:0.569,lifeExp:76.1,obesity:33.3,highBP:35.2,mental:17.6,smoking:14.1,inact:27.1,disab:31.2,fairH:20.8,uninsured:14.7,park:1.77,mhProv:472,pcpR:94,foodPct:63.8,airTox:21.0,traffic:115.5,pop:36998,income:65234,pov:12.9,hBurden:15.9,childFood:7224,pedR:77,svi:0.771},
+  {zip:"32216",cls:"atrisk",cluster:"other",idx:0.519,hcGap:0.210,foodGap:0.694,envGap:0.729,socio:0.659,lifeExp:77.2,obesity:33.0,highBP:33.0,mental:18.2,smoking:13.7,inact:27.1,disab:30.8,fairH:20.2,uninsured:14.9,park:2.94,mhProv:237,pcpR:242,foodPct:60.6,airTox:23.8,traffic:109.1,pop:42298,income:61821,pov:17.1,hBurden:19.0,childFood:7401,pedR:604,svi:0.793},
+  {zip:"32217",cls:"atrisk",cluster:"other",idx:0.519,hcGap:0.300,foodGap:0.854,envGap:0.676,socio:0.474,lifeExp:77.8,obesity:31.6,highBP:34.6,mental:16.5,smoking:11.6,inact:24.7,disab:29.7,fairH:18.1,uninsured:13.0,park:1.66,mhProv:76,pcpR:919,foodPct:73.9,airTox:17.8,traffic:88.3,pop:20221,income:73832,pov:11.0,hBurden:14.0,childFood:3698,pedR:185,svi:0.651},
+  {zip:"32218",cls:"atrisk",cluster:"other",idx:0.462,hcGap:0.298,foodGap:0.566,envGap:0.658,socio:0.485,lifeExp:74.6,obesity:38.0,highBP:38.4,mental:19.6,smoking:15.8,inact:29.4,disab:33.0,fairH:22.8,uninsured:13.8,park:10.69,mhProv:143,pcpR:1302,foodPct:49.8,airTox:25.4,traffic:89.2,pop:72905,income:69638,pov:10.9,hBurden:12.9,childFood:14414,pedR:2679,svi:0.702},
+  {zip:"32219",cls:"atrisk",cluster:"other",idx:0.575,hcGap:0.774,foodGap:0.485,envGap:0.610,socio:0.383,lifeExp:74.3,obesity:38.4,highBP:40.9,mental:19.2,smoking:16.3,inact:30.4,disab:33.9,fairH:23.5,uninsured:13.4,park:14.91,mhProv:6,pcpR:14302,foodPct:43.0,airTox:24.6,traffic:81.2,pop:14302,income:72184,pov:9.4,hBurden:7.1,childFood:3117,pedR:null,svi:0.660},
+  {zip:"32221",cls:"atrisk",cluster:"other",idx:0.541,hcGap:0.542,foodGap:0.817,envGap:0.552,socio:0.351,lifeExp:77.5,obesity:34.3,highBP:36.2,mental:18.4,smoking:14.5,inact:27.1,disab:31.0,fairH:20.3,uninsured:12.7,park:16.91,mhProv:18,pcpR:8208,foodPct:70.8,airTox:21.0,traffic:65.5,pop:32833,income:82969,pov:8.1,hBurden:10.3,childFood:7470,pedR:2718,svi:0.544},
+  {zip:"32222",cls:"atrisk",cluster:"other",idx:0.477,hcGap:0.509,foodGap:0.499,envGap:0.654,socio:0.336,lifeExp:78.3,obesity:36.2,highBP:35.8,mental:19.3,smoking:15.3,inact:28.3,disab:31.7,fairH:21.5,uninsured:13.9,park:4.58,mhProv:14,pcpR:4564,foodPct:44.2,airTox:22.8,traffic:54.0,pop:18258,income:85649,pov:5.9,hBurden:14.8,childFood:2501,pedR:null,svi:0.355},
+  {zip:"32226",cls:"atrisk",cluster:"other",idx:0.342,hcGap:0.513,foodGap:0.537,envGap:0.091,socio:0.139,lifeExp:76.4,obesity:31.9,highBP:33.0,mental:17.1,smoking:12.5,inact:22.6,disab:27.2,fairH:16.7,uninsured:10.4,park:61.51,mhProv:9,pcpR:4251,foodPct:47.4,airTox:12.7,traffic:24.6,pop:21256,income:110179,pov:6.3,hBurden:9.2,childFood:4078,pedR:2749,svi:0.121},
+  {zip:"32277",cls:"atrisk",cluster:"other",idx:0.559,hcGap:0.418,foodGap:0.559,envGap:0.720,socio:0.645,lifeExp:76.8,obesity:36.2,highBP:35.5,mental:20.3,smoking:15.2,inact:29.4,disab:33.7,fairH:22.7,uninsured:15.1,park:4.89,mhProv:6,pcpR:2138,foodPct:49.2,airTox:24.5,traffic:111.1,pop:36338,income:61554,pov:17.8,hBurden:15.7,childFood:7257,pedR:2315,svi:0.882},
+  {zip:"32223",cls:"control",cluster:"other",idx:0.400,hcGap:0.290,foodGap:0.735,envGap:0.585,socio:0.213,lifeExp:80.7,obesity:30.2,highBP:35.0,mental:16.0,smoking:11.6,inact:22.4,disab:28.2,fairH:16.5,uninsured:10.1,park:0.83,mhProv:66,pcpR:969,foodPct:64.0,airTox:10.1,traffic:43.7,pop:26160,income:95347,pov:6.2,hBurden:11.3,childFood:5114,pedR:874,svi:0.125},
+  {zip:"32224",cls:"control",cluster:"other",idx:0.423,hcGap:0.260,foodGap:0.708,envGap:0.483,socio:0.393,lifeExp:80.9,obesity:28.5,highBP:28.4,mental:17.8,smoking:10.1,inact:20.6,disab:26.7,fairH:15.0,uninsured:10.5,park:12.13,mhProv:61,pcpR:81,foodPct:61.7,airTox:7.4,traffic:53.6,pop:42092,income:88259,pov:9.5,hBurden:15.2,childFood:7370,pedR:506,svi:0.488},
+  {zip:"32225",cls:"control",cluster:"other",idx:0.414,hcGap:0.342,foodGap:0.677,envGap:0.492,socio:0.286,lifeExp:79.1,obesity:30.7,highBP:32.0,mental:16.8,smoking:11.5,inact:22.4,disab:26.8,fairH:16.2,uninsured:10.7,park:12.71,mhProv:40,pcpR:1331,foodPct:59.1,airTox:9.2,traffic:54.5,pop:55905,income:90559,pov:8.0,hBurden:12.3,childFood:12766,pedR:2574,svi:0.257},
+  {zip:"32233",cls:"control",cluster:"other",idx:0.527,hcGap:0.475,foodGap:0.956,envGap:0.399,socio:0.364,lifeExp:77.0,obesity:31.1,highBP:33.6,mental:17.4,smoking:12.8,inact:23.8,disab:29.7,fairH:17.8,uninsured:11.9,park:15.02,mhProv:16,pcpR:4927,foodPct:82.4,airTox:1.3,traffic:36.2,pop:24633,income:89185,pov:9.4,hBurden:14.8,childFood:4688,pedR:5074,svi:0.396},
+  {zip:"32246",cls:"control",cluster:"other",idx:0.490,hcGap:0.364,foodGap:0.692,envGap:0.679,socio:0.407,lifeExp:77.2,obesity:31.4,highBP:30.6,mental:17.9,smoking:12.8,inact:24.8,disab:28.1,fairH:18.2,uninsured:13.1,park:2.25,mhProv:43,pcpR:2085,foodPct:60.3,airTox:18.2,traffic:94.0,pop:62562,income:80963,pov:11.6,hBurden:14.0,childFood:11736,pedR:1011,svi:0.429},
+  {zip:"32256",cls:"control",cluster:"other",idx:0.409,hcGap:0.207,foodGap:0.500,envGap:0.653,socio:0.462,lifeExp:79.5,obesity:28.6,highBP:29.2,mental:16.3,smoking:9.5,inact:20.8,disab:25.3,fairH:14.5,uninsured:10.5,park:4.49,mhProv:184,pcpR:571,foodPct:44.3,airTox:18.3,traffic:84.9,pop:58192,income:73570,pov:9.3,hBurden:19.6,childFood:7845,pedR:640,svi:0.341},
+  {zip:"32257",cls:"control",cluster:"other",idx:0.442,hcGap:0.288,foodGap:0.537,envGap:0.641,socio:0.457,lifeExp:78.5,obesity:31.3,highBP:33.8,mental:17.2,smoking:12.6,inact:24.4,disab:29.5,fairH:18.1,uninsured:12.1,park:2.50,mhProv:80,pcpR:795,foodPct:47.4,airTox:16.4,traffic:69.7,pop:42904,income:75780,pov:11.2,hBurden:14.7,childFood:8130,pedR:1755,svi:0.555},
+  {zip:"32258",cls:"control",cluster:"other",idx:0.330,hcGap:0.287,foodGap:0.466,envGap:0.448,socio:0.230,lifeExp:80.2,obesity:29.5,highBP:29.8,mental:16.6,smoking:10.8,inact:21.0,disab:25.1,fairH:14.9,uninsured:10.0,park:20.38,mhProv:48,pcpR:825,foodPct:41.4,airTox:12.7,traffic:48.6,pop:40408,income:102204,pov:7.9,hBurden:11.0,childFood:5882,pedR:472,svi:0.262},
+  {zip:"32212",cls:"atrisk",cluster:"other",idx:0.524,hcGap:0.372,foodGap:1.000,envGap:0.731,socio:0.280,lifeExp:77.2,obesity:28.6,highBP:17.0,mental:24.1,smoking:11.8,inact:22.5,disab:28.9,fairH:15.9,uninsured:16.3,park:0.0,mhProv:4,pcpR:149,foodPct:86.1,airTox:22.1,traffic:99.0,pop:1939,income:51422,pov:7.1,hBurden:4.5,childFood:287,pedR:71,svi:0.097},
+  {zip:"32220",cls:"atrisk",cluster:"other",idx:0.513,hcGap:0.607,foodGap:0.712,envGap:0.397,socio:0.327,lifeExp:73.2,obesity:35.2,highBP:37.7,mental:19.8,smoking:17.9,inact:29.4,disab:34.9,fairH:23.1,uninsured:13.8,park:30.74,mhProv:3,pcpR:12298,foodPct:62.1,airTox:16.2,traffic:56.3,pop:12298,income:81792,pov:10.9,hBurden:8.7,childFood:3058,pedR:null,svi:0.402},
+  {zip:"32227",cls:"atrisk",cluster:"other",idx:0.422,hcGap:0.400,foodGap:0.722,envGap:0.436,socio:0.242,lifeExp:72.7,obesity:27.7,highBP:16.8,mental:22.2,smoking:10.9,inact:20.2,disab:26.7,fairH:14.3,uninsured:16.7,park:10.57,mhProv:2,pcpR:null,foodPct:62.8,airTox:1.8,traffic:33.5,pop:3207,income:85833,pov:5.6,hBurden:8.9,childFood:614,pedR:null,svi:0.267},
+  {zip:"32234",cls:"atrisk",cluster:"other",idx:0.341,hcGap:0.618,foodGap:0.000,envGap:0.432,socio:0.198,lifeExp:74.7,obesity:34.9,highBP:37.8,mental:19.3,smoking:16.7,inact:28.1,disab:33.9,fairH:21.4,uninsured:12.6,park:19.72,mhProv:0,pcpR:9678,foodPct:2.5,airTox:13.2,traffic:22.2,pop:9678,income:87331,pov:3.9,hBurden:7.4,childFood:1798,pedR:null,svi:0.239},
+  {zip:"32250",cls:"atrisk",cluster:"other",idx:0.325,hcGap:0.250,foodGap:0.548,envGap:0.502,socio:0.175,lifeExp:79.0,obesity:28.9,highBP:31.1,mental:15.5,smoking:10.0,inact:19.3,disab:25.0,fairH:14.2,uninsured:9.3,park:1.26,mhProv:81,pcpR:421,foodPct:48.3,airTox:0.9,traffic:30.4,pop:29072,income:117724,pov:5.7,hBurden:13.1,childFood:4317,pedR:237,svi:0.214},
+  {zip:"32266",cls:"atrisk",cluster:"other",idx:0.427,hcGap:0.497,foodGap:0.741,envGap:0.494,socio:0.102,lifeExp:83.0,obesity:27.6,highBP:29.8,mental:14.9,smoking:9.0,inact:16.9,disab:22.9,fairH:12.3,uninsured:7.1,park:0.73,mhProv:29,pcpR:652,foodPct:64.5,airTox:0.7,traffic:19.5,pop:7168,income:119294,pov:3.1,hBurden:12.9,childFood:1177,pedR:null,svi:0.021},
+];
+
+// ─────────────────────────────────────────────────────────
+// ZIP CENTROIDS (approximate lat/lng for Duval County)
+// ─────────────────────────────────────────────────────────
+const CENTROIDS = {
+  '32202':[30.3279,-81.6553],'32204':[30.3171,-81.6809],
+  '32205':[30.3055,-81.7059],'32206':[30.3581,-81.6432],
+  '32207':[30.2963,-81.6259],'32208':[30.3803,-81.6769],
+  '32209':[30.3651,-81.7151],'32210':[30.2703,-81.7181],
+  '32211':[30.3249,-81.5858],'32212':[30.2219,-81.6509],
+  '32216':[30.2906,-81.5658],'32217':[30.2567,-81.6223],
+  '32218':[30.4346,-81.6629],'32219':[30.4096,-81.7638],
+  '32221':[30.3103,-81.8021],'32222':[30.2338,-81.8046],
+  '32223':[30.1867,-81.6487],'32224':[30.2764,-81.4868],
+  '32225':[30.3360,-81.5258],'32226':[30.4203,-81.5058],
+  '32227':[30.2324,-81.3978],'32233':[30.3291,-81.4183],
+  '32234':[30.2439,-81.9301],'32244':[30.2294,-81.7618],
+  '32246':[30.2967,-81.5258],'32250':[30.2517,-81.4428],
+  '32254':[30.3374,-81.7456],'32256':[30.2237,-81.5598],
+  '32257':[30.2062,-81.6023],'32258':[30.1575,-81.6277],
+  '32266':[30.2749,-81.4033],'32277':[30.3810,-81.5538],
+  '32220':[30.3654,-81.8368],'32212':[30.2219,-81.6509],
+};
+
+const CLS_COLOR = { desert:'#cc0000', atrisk:'#cc6600', control:'#009933' };
+const CLS_OTHER = '#666';
+let selectedZip = null;
+let filters = {desert:true,atrisk:true,control:true};
+let leafletMap = null;
+let zipLayers = {};
+
+// ─────────────────────────────────────────────────────────
+// LEAFLET MAP
+// ─────────────────────────────────────────────────────────
+function initMap() {
+  leafletMap = L.map('map', {
+    center: [30.29, -81.63],
+    zoom: 11,
+    zoomControl: true,
+    attributionControl: true,
+  });
+
+  // CartoDB Positron — clean, professional, light basemap
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    subdomains: 'abcd',
+    maxZoom: 19
+  }).addTo(leafletMap);
+
+  // Draw ZIP overlays as circles
+  DATA.forEach(d => {
+    if (!CENTROIDS[d.zip]) return;
+    const [lat, lng] = CENTROIDS[d.zip];
+    const clr = CLS_COLOR[d.cls] || CLS_OTHER;
+    const radius = Math.sqrt(d.pop) * 8;
+    const opacity = d.cls === 'desert' ? 0.55 : d.cls === 'atrisk' ? 0.35 : 0.25;
+
+    const circle = L.circle([lat, lng], {
+      radius: radius,
+      fillColor: clr,
+      fillOpacity: d.idx * opacity * 1.4,
+      color: clr,
+      weight: d.cls === 'desert' ? 2 : 1,
+      opacity: d.cls === 'desert' ? 0.9 : 0.5,
+    });
+
+    // ZIP label
+    const icon = L.divIcon({
+      className: '',
+      html: `<div style="
+        font-family:Arial,sans-serif;
+        font-size:${d.cls==='desert'?11:10}px;
+        font-weight:bold;
+        color:${d.cls==='desert'?clr:'#666'};
+        background:white;
+        padding:2px 5px;
+        border:1px solid ${clr};
+        white-space:nowrap;
+        display:inline-block;
+      ">${d.zip}</div>`,
+      iconAnchor: [22, 10],
+    });
+    const marker = L.marker([lat, lng], {icon, interactive:false}).addTo(leafletMap);
+
+    circle.on('click', () => selectZip(d.zip));
+    circle.on('mouseover', (e) => {
+      circle.setStyle({fillOpacity: d.idx * opacity * 2, weight: 2});
+      showMapTooltip(d, e);
+    });
+    circle.on('mouseout', () => {
+      if (selectedZip !== d.zip)
+        circle.setStyle({fillOpacity: d.idx * opacity * 1.4, weight: d.cls==='desert'?2:1});
+      hideMapTooltip();
+    });
+    circle.addTo(leafletMap);
+    zipLayers[d.zip] = {circle, marker, baseOpacity: d.idx * opacity * 1.4};
+  });
+
+  // St Johns River label
+  const riverIcon = L.divIcon({
+    className:'',
+    html:`<div style="font-family:Arial,sans-serif;font-size:10px;font-weight:bold;color:#336699;">St. Johns River</div>`,
+    iconAnchor:[50,8]
+  });
+  L.marker([30.295, -81.640], {icon:riverIcon, interactive:false}).addTo(leafletMap);
+}
+
+let mapTooltip = null;
+function showMapTooltip(d, e) {
+  if (!mapTooltip) {
+    mapTooltip = document.createElement('div');
+    mapTooltip.style.cssText = 'position:fixed;z-index:9999;background:white;border:2px solid #336699;padding:10px;pointer-events:none;font-family:Arial,sans-serif;font-size:11px;min-width:150px';
+    document.body.appendChild(mapTooltip);
+  }
+  const clr = CLS_COLOR[d.cls] || CLS_OTHER;
+  mapTooltip.innerHTML = `
+    <div style="font-weight:bold;font-size:14px;color:${clr};margin-bottom:5px">${d.zip}</div>
+    <div style="font-size:10px;font-weight:bold;text-transform:uppercase;color:white;background:${clr};padding:2px 5px;display:inline-block;margin-bottom:8px">${d.cls==='desert'?'Resource Desert':d.cls==='atrisk'?'At Risk':'Control'}</div>
+    <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #ddd;font-size:11px"><span style="color:#666">Life expectancy</span><span style="font-weight:bold">${d.lifeExp}yr</span></div>
+    <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #ddd;font-size:11px"><span style="color:#666">Desert index</span><span style="font-weight:bold">${d.idx.toFixed(3)}</span></div>
+    <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:11px"><span style="color:#666">Population</span><span style="font-weight:bold">${d.pop.toLocaleString()}</span></div>`;
+  mapTooltip.style.display = 'block';
+  mapTooltip.style.left = (e.originalEvent.clientX + 14) + 'px';
+  mapTooltip.style.top = (e.originalEvent.clientY - 10) + 'px';
+}
+function hideMapTooltip() {
+  if (mapTooltip) mapTooltip.style.display = 'none';
+}
+
+// ─────────────────────────────────────────────────────────
+// SIDEBAR
+// ─────────────────────────────────────────────────────────
+function buildSidebar() {
+  const sorted = [...DATA].sort((a,b)=>b.idx-a.idx);
+  const list = document.getElementById('zip-list');
+  list.innerHTML = '';
+  sorted.forEach(d => {
+    if (!filters[d.cls] && d.cls !== 'other') {
+      if (d.cls === 'atrisk' && !filters.atrisk) return;
+      if (d.cls === 'desert' && !filters.desert) return;
+      if (d.cls === 'control' && !filters.control) return;
+    }
+    const clr = CLS_COLOR[d.cls] || CLS_OTHER;
+    const tag = d.cls==='desert'?'Resource Desert':d.cls==='atrisk'?'At Risk':d.cls==='control'?'Control':'Other';
+    const div = document.createElement('div');
+    div.className = `zip-row ${d.cls}${selectedZip===d.zip?' active':''}`;
+    div.innerHTML = `
+      <div class="zip-badge">${d.zip}</div>
+      <div class="zip-info">
+        <div class="zip-name">${tag}</div>
+        <div class="zip-stats">${d.lifeExp}yr · $${Math.round(d.income/1000)}K · ${d.pop.toLocaleString()}</div>
+      </div>
+      <div class="zip-index-bar">
+        <div class="zip-index-track"><div class="zip-index-fill" style="width:${Math.round(d.idx*100)}%;background:${clr}"></div></div>
+        <div class="zip-index-val">${d.idx.toFixed(3)}</div>
+      </div>`;
+    div.onclick = () => selectZip(d.zip);
+    list.appendChild(div);
+  });
+}
+
+function toggleFilter(cls, btn) {
+  filters[cls] = !filters[cls];
+  btn.classList.toggle('on', filters[cls]);
+  buildSidebar();
+  updateMapVisibility();
+  updateCharts();
+}
+
+function updateMapVisibility() {
+  Object.entries(zipLayers).forEach(([zip, {circle, marker}]) => {
+    const d = DATA.find(x => x.zip === zip);
+    if (!d) return;
+    const visible = filters[d.cls] || (d.cls !== 'desert' && d.cls !== 'atrisk' && d.cls !== 'control');
+    if (visible) {
+      if (!leafletMap.hasLayer(circle)) circle.addTo(leafletMap);
+      if (!leafletMap.hasLayer(marker)) marker.addTo(leafletMap);
+    } else {
+      if (leafletMap.hasLayer(circle)) leafletMap.removeLayer(circle);
+      if (leafletMap.hasLayer(marker)) leafletMap.removeLayer(marker);
+    }
+  });
+}
+
+// ─────────────────────────────────────────────────────────
+// SELECTION & DETAIL PANEL
+// ─────────────────────────────────────────────────────────
+const DESCS = {
+  '32209':'Northwest Jacksonville — the most acute crisis in the city. Life expectancy 68.7 years, 37.6% below poverty, over half of adults with high blood pressure. All 5 layers of the causal chain are simultaneously active.',
+  '32254':'Highest composite desert index (0.754). 82.1% of residents lack food access within 0.5 miles. 33.7% below poverty. The most severe food desert in Jacksonville by percentage of population.',
+  '32206':'Northside — 32.4% poverty compounded by the worst environmental burden in the cluster. Air toxics index 36.4, traffic index 207.2. Residents breathe air with nearly double the city-median cancer risk.',
+  '32208':'Norwood/Northside — 50.6% high blood pressure and 45.7% obesity. Already in Layer 4 of the causal chain with advanced, unmanaged chronic conditions.',
+  '32202':'Downtown/Springfield — 7 of 8 SVI factors flagged. 27.4% uninsured (worst in city). 25.3% poor mental health (worst in city). 31.8% smoking rate (worst in city). Small population, devastating per-capita impact.',
+  '32210':'Westside — largest desert by population (65,729). 43,359 residents lack food access. 15,464 children food insecure. 3,207 kids per pediatrician. The largest absolute scale of unmet need in the city.',
+  '32244':'Westside — worst pediatrician ratio of all 8 deserts (3,665:1, vs AAP max 1,500). 15,612 children with food access problems. Today\'s children are entering the causal chain without pediatric care.',
+  '32211':'Arlington/Westside — earliest in the chain. 22.6% poverty, 18% uninsured. Still preventable from cascading to terminal outcomes if intervention begins now.',
+};
+
+const controlGroup = DATA.filter(d=>d.cls==='control');
+function ctrlMed(key) {
+  const v = controlGroup.map(d=>d[key]).filter(x=>x!=null).sort((a,b)=>a-b);
+  return v[Math.floor(v.length/2)];
+}
+
+function selectZip(zip) {
+  selectedZip = zip;
+  buildSidebar();
+  const d = DATA.find(x=>x.zip===zip);
+  if (d && leafletMap && CENTROIDS[zip]) {
+    leafletMap.setView(CENTROIDS[zip], 13, {animate:false});
+  }
+  // Highlight layer
+  Object.entries(zipLayers).forEach(([z, {circle, baseOpacity}]) => {
+    const isSelected = z === zip;
+    const dz = DATA.find(x=>x.zip===z);
+    if (!dz) return;
+    const clr = CLS_COLOR[dz.cls] || CLS_OTHER;
+    circle.setStyle({
+      fillOpacity: isSelected ? 0.75 : baseOpacity,
+      weight: isSelected ? 3 : (dz.cls==='desert'?2:1),
+      color: isSelected ? clr : clr,
+    });
+  });
+  if (d) renderDetail(d);
+}
+
+function renderDetail(d) {
+  const clr = CLS_COLOR[d.cls] || CLS_OTHER;
+  const tag = d.cls==='desert'?'Resource Desert':d.cls==='atrisk'?'At Risk':'Control Group';
+  const idxClr = d.idx>0.65?'#c0392b':d.idx>0.5?'#c96a00':'#1a7a4a';
+  const desc = DESCS[d.zip] || `ZIP ${d.zip} — ${tag}.`;
+
+  const metrics = [
+    {val:`${d.lifeExp}yr`,label:'Life expectancy',key:'lifeExp',lowBad:true},
+    {val:`${d.obesity}%`,label:'Obesity rate',key:'obesity',lowBad:false},
+    {val:`${d.highBP}%`,label:'High blood pressure',key:'highBP',lowBad:false},
+    {val:`${d.uninsured}%`,label:'Uninsured adults',key:'uninsured',lowBad:false},
+    {val:`${d.inact}%`,label:'Physical inactivity',key:'inact',lowBad:false},
+    {val:`${d.smoking}%`,label:'Smoking rate',key:'smoking',lowBad:false},
+    {val:`$${Math.round(d.income/1000)}K`,label:'Median income',key:'income',lowBad:true},
+    {val:`${d.pov}%`,label:'Below poverty',key:'pov',lowBad:false},
+  ];
+
+  // Sort metrics by how much worse they are vs control (worst first)
+  metrics.forEach(m => {
+    const cv = ctrlMed(m.key);
+    if (cv) {
+      const diff = d[m.key] - cv;
+      // Normalize the difference as a percentage of control value for fair comparison
+      // For lowBad metrics (life expectancy, income), negative diff is worse
+      // For others, positive diff is worse
+      m.worstScore = m.lowBad ? -diff / cv : diff / cv;
+    } else {
+      m.worstScore = 0;
+    }
+  });
+  metrics.sort((a, b) => b.worstScore - a.worstScore);
+
+  const pillars = [
+    {key:'hcGap',name:'Healthcare Supply Gap',color:'#0066cc',desc:'Provider ratios, insurance coverage, checkup utilization'},
+    {key:'foodGap',name:'Food Access Gap',color:'#cc6600',desc:'Distance to healthy food, low-income population affected'},
+    {key:'envGap',name:'Environment Gap',color:'#009933',desc:'Park coverage, air toxics exposure, traffic burden'},
+    {key:'socio',name:'Socioeconomic Vulnerability',color:'#990099',desc:'Income, poverty rate, excessive housing cost burden'},
+  ];
+
+  const comparePairs = [
+    {name:'Food insecure %',dv:d.foodPct,cv:ctrlMed('foodPct'),max:90,worse:'high'},
+    {name:'Air toxics index',dv:d.airTox,cv:ctrlMed('airTox'),max:50,worse:'high'},
+    {name:'Park coverage %',dv:d.park,cv:ctrlMed('park'),max:25,worse:'low'},
+    {name:'Disability %',dv:d.disab,cv:ctrlMed('disab'),max:55,worse:'high'},
+  ];
+
+  const wrapper = document.getElementById('detail-wrapper');
+  wrapper.innerHTML = `
+    <div class="detail-content">
+      <div class="detail-header-block">
+        <div class="detail-zip-row">
+          <div>
+            <div class="detail-zip-num" style="color:${clr}">${d.zip}</div>
+            <div class="detail-cls-badge dcb-${d.cls}">${tag}</div>
+          </div>
+          <div class="detail-index-block">
+            <div class="detail-index-num" style="color:${idxClr}">${d.idx.toFixed(3)}</div>
+            <div class="detail-index-lbl">Desert Index</div>
+            <div style="font-size:9px;color:var(--text-faint);font-family:'IBM Plex Mono',monospace;margin-top:4px">Pop: ${d.pop.toLocaleString()}</div>
+          </div>
+        </div>
+        <div class="detail-desc">${desc}</div>
+      </div>
+
+      <div class="compare-block">
+        <div class="block-title" style="margin-bottom:8px">Asset Comparison — This ZIP vs Control</div>
+        <div style="display:flex;gap:16px;font-size:10px;margin-bottom:10px;font-weight:bold">
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:${clr};display:inline-block;border:1px solid #999"></span>This ZIP</span>
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#009933;display:inline-block;border:1px solid #999"></span>Control median</span>
+        </div>
+        ${comparePairs.map(p=>{
+          const dp = Math.min(100,Math.round(p.dv/p.max*100));
+          const cp = Math.min(100,Math.round(p.cv/p.max*100));
+          const isWorse = p.worse==='high' ? p.dv>p.cv : p.dv<p.cv;
+          const dvDisplay = p.dv + (p.name.includes('$') ? '' : '');
+          const cvDisplay = p.cv.toFixed(1);
+          const rowBg = isWorse ? (d.cls==='desert' ? '#ffeeee' : '#fff5e6') : '#e6ffe6';
+          const statusIcon = isWorse ? '▼' : '▲';
+          const statusColor = isWorse ? (d.cls==='desert' ? '#cc0000' : '#cc6600') : '#009933';
+          return `<div class="cbar-row" style="background:${rowBg};padding:8px;margin-bottom:6px;border-left:4px solid ${statusColor}">
+            <div class="cbar-label-row">
+              <span class="cbar-name" style="font-weight:bold;color:#333">${p.name} <span style="color:${statusColor}">${statusIcon}</span></span>
+              <div class="cbar-vals">
+                <span style="color:${isWorse?(d.cls==='desert'?'#cc0000':'#cc6600'):'#009933'};font-weight:bold">${dvDisplay}</span>
+                <span style="color:#009933;font-weight:bold">${cvDisplay}</span>
+              </div>
+            </div>
+            <div style="display:flex;gap:4px;margin-top:4px">
+              <div style="flex:1"><div class="cbar-track"><div class="cbar-fill" style="width:${dp}%;background:${isWorse?(d.cls==='desert'?'#cc0000':'#cc6600'):'#009933'}"></div></div></div>
+              <div style="flex:1"><div class="cbar-track"><div class="cbar-fill" style="width:${cp}%;background:#009933"></div></div></div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+
+      <div class="pillars-block">
+        <div class="block-title">Four Pillar Scores</div>
+        ${pillars.map(p=>`
+          <div class="pillar-row">
+            <div class="pillar-top">
+              <div class="pillar-name" style="color:${p.color}">${p.name}</div>
+              <div class="pillar-score" style="color:${p.color}">${d[p.key].toFixed(3)}</div>
+            </div>
+            <div class="pillar-track">
+              <div class="pillar-fill" style="width:${Math.round(d[p.key]*100)}%;background:${p.color}"></div>
+            </div>
+            <div class="pillar-sub">${p.desc}</div>
+          </div>`).join('')}
+      </div>
+
+      <div class="metrics-block">
+        <div class="block-title" style="margin-bottom:8px">Key Indicators vs. Control Group Median</div>
+        <div class="metrics-2col">
+          ${metrics.map(m=>{
+            const cv = ctrlMed(m.key);
+            const diff = cv ? d[m.key]-cv : null;
+            const isWorse = diff !== null ? (m.lowBad ? diff<0 : diff>0) : false;
+            const diffStr = diff !== null ? `${diff>0?'+':''}${m.key==='income'?'$'+Math.abs(Math.round(diff/1000))+'K':diff.toFixed(1)+(m.key==='lifeExp'?'yr':'%')} vs control` : '';
+            const valColor = isWorse && d.cls==='desert' ? 'var(--desert)' : isWorse && d.cls==='atrisk' ? 'var(--atrisk)' : d.cls==='control' ? 'var(--control)' : 'var(--text-primary)';
+            return `<div class="metric-tile">
+              <div class="metric-tile-val" style="color:${valColor}">${m.val}</div>
+              <div class="metric-tile-label">${m.label}</div>
+              ${diffStr ? `<div class="metric-tile-diff ${isWorse?'diff-worse':'diff-better'}">${diffStr}</div>` : ''}
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>`;
+}
+
+// ─────────────────────────────────────────────────────────
+// CHARTS
+// ─────────────────────────────────────────────────────────
+Chart.defaults.font.family = "Arial, sans-serif";
+Chart.defaults.font.size = 11;
+Chart.defaults.color = '#666';
+
+let chartInstances = {};
+
+function buildCharts() {
+  buildScatter('c1','income','lifeExp','Median Income ($)','Life Expectancy (yr)',v=>'$'+Math.round(v/1000)+'K',v=>v+'yr');
+  buildScatter('c2','inact','obesity','Physical Inactivity (%)','Obesity Rate (%)',v=>v+'%',v=>v+'%');
+  buildScatter('c3','uninsured','lifeExp','Uninsured Rate (%)','Life Expectancy (yr)',v=>v+'%',v=>v+'yr');
+  buildBarChart('c4');
+}
+
+function updateCharts() {
+  // Destroy and rebuild charts with current filter state
+  Object.keys(chartInstances).forEach(id => {
+    if (chartInstances[id]) {
+      chartInstances[id].destroy();
+      const canvas = document.getElementById(id);
+      if (canvas) canvas._built = false;
+    }
+  });
+  chartInstances = {};
+  buildCharts();
+}
+
+function getFilteredData() {
+  return DATA.filter(d => {
+    if (d.cls === 'desert') return filters.desert;
+    if (d.cls === 'atrisk') return filters.atrisk;
+    if (d.cls === 'control') return filters.control;
+    return true; // 'other' always visible
+  });
+}
+
+function buildScatter(id, xk, yk, xl, yl, xf, yf) {
+  const canvas = document.getElementById(id);
+  if (!canvas || canvas._built) return;
+  canvas._built = true;
+  
+  const filteredData = getFilteredData();
+  const valid = filteredData.filter(d=>d[xk]!=null&&d[yk]!=null);
+  
+  const datasets = [];
+  
+  if (filters.desert) {
+    datasets.push({label:'Resource Desert',data:valid.filter(d=>d.cls==='desert').map(d=>({x:d[xk],y:d[yk],zip:d.zip})),backgroundColor:'#cc0000',pointRadius:7,pointHoverRadius:9});
+  }
+  if (filters.atrisk) {
+    datasets.push({label:'At Risk',data:valid.filter(d=>d.cls==='atrisk').map(d=>({x:d[xk],y:d[yk],zip:d.zip})),backgroundColor:'#cc6600',pointRadius:6,pointHoverRadius:8});
+  }
+  if (filters.control) {
+    datasets.push({label:'Control',data:valid.filter(d=>d.cls==='control').map(d=>({x:d[xk],y:d[yk],zip:d.zip})),backgroundColor:'#009933',pointRadius:6,pointHoverRadius:8});
+  }
+  
+  // Regression on ALL data (not filtered) to keep trend line consistent
+  const allValid = DATA.filter(d=>d[xk]!=null&&d[yk]!=null);
+  const xs=allValid.map(d=>d[xk]),ys=allValid.map(d=>d[yk]),n=xs.length;
+  const mx=xs.reduce((a,b)=>a+b)/n,my=ys.reduce((a,b)=>a+b)/n;
+  const slope=(xs.reduce((s,x,i)=>s+(x-mx)*(ys[i]-my),0))/(xs.reduce((s,x)=>s+(x-mx)**2,0));
+  const intercept=my-slope*mx;
+  const xmin=Math.min(...xs),xmax=Math.max(...xs);
+  datasets.push({label:'Trend',data:[{x:xmin,y:slope*xmin+intercept},{x:xmax,y:slope*xmax+intercept}],type:'line',borderColor:'#999',borderWidth:2,borderDash:[5,5],pointRadius:0,fill:false,tension:0});
+
+  const chart = new Chart(canvas, {
+    type:'scatter',
+    data:{datasets},
+    options:{
+      animation:false,
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{
+          display:true,
+          labels:{boxWidth:8,padding:12,usePointStyle:true},
+          onClick: null // Disable legend click to toggle visibility
+        },
+        tooltip:{
+          callbacks:{
+            title: ctx => ctx[0]?.raw?.zip || '',
+            label: ctx => `${xl}: ${xf(ctx.raw.x)}  ${yl}: ${yf(ctx.raw.y)}`
+          }
+        }
+      },
+      scales:{
+        x:{grid:{color:'#ddd'},title:{display:true,text:xl}},
+        y:{grid:{color:'#ddd'},title:{display:true,text:yl}},
+      }
+    }
+  });
+  chartInstances[id] = chart;
+}
+
+function buildBarChart(id) {
+  const canvas = document.getElementById(id);
+  if (!canvas || canvas._built) return;
+  canvas._built = true;
+  
+  const filteredData = getFilteredData();
+  const sorted = [...filteredData].sort((a,b)=>b.idx-a.idx);
+  const colors = sorted.map(d=>d.cls==='desert'?'#cc0000':d.cls==='atrisk'?'#cc6600':d.cls==='control'?'#009933':'#999');
+  
+  const chart = new Chart(canvas,{
+    type:'bar',
+    data:{
+      labels:sorted.map(d=>d.zip),
+      datasets:[{data:sorted.map(d=>d.idx),backgroundColor:colors,borderWidth:1,borderColor:'#666'}]
+    },
+    options:{
+      animation:false,
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`Index: ${ctx.raw.toFixed(3)}`}}},
+      scales:{
+        x:{grid:{display:false},ticks:{maxRotation:45,font:{size:9}}},
+        y:{grid:{color:'#ddd'},min:0.2,max:0.8,title:{display:true,text:'Desert Index Score'}},
+      }
+    }
+  });
+  chartInstances[id] = chart;
+}
+
+// ─────────────────────────────────────────────────────────
+// CAUSAL CHAIN
+// ─────────────────────────────────────────────────────────
+function buildChain() {
+  const layers = [
+    {lbl:'Layer 1',title:'Structural\nPoverty',color:'#666',items:[
+      {t:'Median income $30–40K in deserts',c:'#666'},
+      {t:'37.6% below poverty line (32209)',c:'#666'},
+      {t:'55% of income spent on housing',c:'#666'},
+      {t:'$1,125/month left for everything else',c:'#666'},
+    ]},
+    {lbl:'Layer 2',title:'Access\nBarriers',color:'#cc6600',items:[
+      {t:'18.4% uninsured (21K adults)',c:'#cc0000'},
+      {t:'68% food insecure within 0.5mi',c:'#cc6600'},
+      {t:'2.6% park coverage vs 8.3% control',c:'#009933'},
+      {t:'Air toxics 2× city median',c:'#666'},
+    ]},
+    {lbl:'Layer 3',title:'Constrained\nBehaviors',color:'#cc6600',items:[
+      {t:'40.6% physically inactive (+18.2pt)',c:'#cc0000'},
+      {t:'22.4% smoking rate — nearly 2×',c:'#cc0000'},
+      {t:'Poor diet — no healthy food nearby',c:'#cc6600'},
+      {t:'Skipped preventative care',c:'#0066cc'},
+    ]},
+    {lbl:'Layer 4',title:'Intermediate\nConditions',color:'#cc0000',items:[
+      {t:'45% obesity — 14.6pt above control',c:'#cc0000'},
+      {t:'46% high blood pressure',c:'#cc0000'},
+      {t:'22% poor mental health',c:'#666'},
+      {t:'43% disability rate',c:'#cc6600'},
+    ]},
+    {lbl:'Layer 5',title:'Terminal\nOutcomes',color:'#333',items:[
+      {t:'72.0yr median life expectancy',c:'#cc0000'},
+      {t:'7.3 years lost vs south/east Jax',c:'#cc0000'},
+      {t:'Heart disease, stroke, diabetes',c:'#cc0000'},
+      {t:'34% report fair/poor health',c:'#cc0000'},
+    ]},
+  ];
+
+  document.getElementById('chain-viz').innerHTML = layers.map(l=>`
+    <div class="chain-card">
+      <div class="chain-layer-lbl">${l.lbl}</div>
+      <div class="chain-card-title" style="color:${l.color}">${l.title.replace('\n','<br>')}</div>
+      ${l.items.map(i=>`<div class="chain-item"><div class="chain-bullet" style="background:${i.c}"></div>${i.t}</div>`).join('')}
+    </div>`).join('');
+
+  document.getElementById('insight-grid').innerHTML = `
+    <div class="insight-card critical">
+      <div class="insight-head">Physical inactivity is the #1 predictor</div>
+      <div class="insight-body">Of all variables tested, physical inactivity has the strongest correlation with life expectancy across all 33 Jacksonville ZIP codes. It is an infrastructure deficit, not a personal failure.</div>
+      <div class="insight-stat">r = −0.824, p &lt; 0.001 ***</div>
+    </div>
+    <div class="insight-card critical">
+      <div class="insight-head">76.4% of life expectancy variance explained</div>
+      <div class="insight-body">A 5-variable regression using obesity, high BP, mental health, smoking, and inactivity explains 76.4% of the variation in life expectancy across all Jacksonville ZIP codes. R² = 0.764.</div>
+      <div class="insight-stat">OLS regression · 33 ZIPs · p &lt; 0.001</div>
+    </div>
+    <div class="insight-card warning">
+      <div class="insight-head">Insurance is the gate to all prevention</div>
+      <div class="insight-body">~21,000 adults across the 8 deserts have no insurance. Hypertension managed with $4/month in generics becomes an undetected stroke at 56 without a PCP to screen for it.</div>
+      <div class="insight-stat">Uninsured → life exp: r = −0.762 ***</div>
+    </div>
+    <div class="insight-card warning">
+      <div class="insight-head">Poverty compounds every feedback loop</div>
+      <div class="insight-body">Poverty correlates with disability (r = 0.857), smoking (r = 0.790), and poor mental health (r = 0.630) — all p &lt; 0.001. Four self-reinforcing loops operate without external intervention.</div>
+      <div class="insight-stat">Poverty → obesity: r = 0.856 ***</div>
+    </div>
+    <div class="insight-card info">
+      <div class="insight-head">Children are inheriting the chain</div>
+      <div class="insight-body">32,244 children across 32210 and 32244 face food access problems. 32244 has 3,665 kids per pediatrician — 2× the AAP maximum. Without pediatric intervention now, today's children become tomorrow's 32209.</div>
+      <div class="insight-stat">31,076 children in food deserts (2 ZIPs only)</div>
+    </div>
+    <div class="insight-card info">
+      <div class="insight-head">$1 in prevention saves $13 in treatment</div>
+      <div class="insight-body">Evidence from the American College of Physicians (2010) shows every dollar invested in primary care prevents $13 in emergency care costs. SNAP enrollment alone reduces hospitalizations by 11% and saves $1,400/person/year.</div>
+      <div class="insight-stat">Source: ACP 2010 · Health Affairs 2019</div>
+    </div>`;
+}
+
+// ─────────────────────────────────────────────────────────
+// VIEW SWITCHING
+// ─────────────────────────────────────────────────────────
+function setView(view) {
+  const mapEl = document.getElementById('map');
+  const scEl = document.getElementById('view-scatter');
+  const chEl = document.getElementById('view-chain');
+  const ovEl = document.getElementById('map-overlay');
+
+  mapEl.style.display = view==='map' ? 'block' : 'none';
+  scEl.style.display = view==='scatter' ? 'block' : 'none';
+  chEl.style.display = view==='chain' ? 'block' : 'none';
+  ovEl.style.display = view==='map' ? 'block' : 'none';
+
+  document.querySelectorAll('.nav-tab').forEach((t,i)=>{
+    t.classList.toggle('active', ['map','scatter','chain'][i]===view);
+  });
+
+  if (view==='scatter') setTimeout(buildCharts, 50);
+}
+
+// ─────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────
+initMap();
+buildSidebar();
+buildChain();
+setTimeout(() => selectZip('32209'), 600);
+</script>
+</body>
+</html>

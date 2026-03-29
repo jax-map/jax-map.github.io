@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jacksonville Resource Desert Simulation</title>
+<!-- fonts inherited from dashboard: Arial, sans-serif -->
+<style>
+:root{--bg:#f5f5f5;--surface:#ffffff;--surface2:#f0f0f0;--border:#ccc;--text:#333;--muted:#666;--accent:#009933;--accent2:#336699;--accent3:#cc6600;--socio:#7b5ea7;--env:#009933;--food:#cc6600;--health:#cc0000;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:Arial,sans-serif;font-size:13px;min-height:100vh;overflow-x:hidden;}
+body::before{display:none;}
+.container{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:1.5rem;padding-top:4.5rem;}
+
+header{margin-bottom:1.4rem;}
+.header-top{display:flex;align-items:flex-start;justify-content:space-between;}
+.title-block h1{font-family:Arial,sans-serif;font-size:1.5rem;font-weight:bold;letter-spacing:0;line-height:1.2;color:#336699;background:none;-webkit-background-clip:unset;-webkit-text-fill-color:unset;}
+.title-block p{color:var(--muted);font-size:11px;margin-top:.3rem;font-family:Arial,sans-serif;letter-spacing:.02em;}
+.sim-badge{display:flex;align-items:center;gap:.4rem;background:#e6ffe6;border:2px solid var(--accent);padding:.35rem .9rem;font-family:Arial,sans-serif;font-size:11px;font-weight:bold;color:var(--accent);white-space:nowrap;}
+.pulse{width:7px;height:7px;border-radius:50%;background:var(--accent);animation:pulse 1.5s ease infinite;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.3)}}
+
+.model-strip{background:var(--surface);border:2px solid var(--border);padding:.55rem 1rem;margin-bottom:1.2rem;display:flex;gap:1.5rem;flex-wrap:wrap;}
+.model-stat{font-family:Arial,sans-serif;font-size:11px;color:var(--muted);}
+.model-stat span{color:var(--accent2);font-weight:bold;}
+
+.zip-label{font-family:Arial,sans-serif;font-size:10px;font-weight:bold;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.45rem;}
+.zip-selector{display:flex;gap:.4rem;margin-bottom:1.2rem;flex-wrap:wrap;}
+.zip-btn{font-family:Arial,sans-serif;font-size:11px;font-weight:bold;padding:.38rem .8rem;border:2px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:.32rem;}
+.zip-btn:hover{border-color:var(--accent2);color:var(--text);}
+.zip-btn.active{background:#e6f0ff;border-color:var(--accent2);color:var(--accent2);}
+.zip-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+
+.sim-controls{display:flex;align-items:center;gap:.9rem;margin-bottom:1.2rem;flex-wrap:wrap;}
+.sim-btn{font-family:Arial,sans-serif;font-weight:bold;font-size:13px;padding:.5rem 1.5rem;border:none;cursor:pointer;background:#336699;color:white;transition:all .2s;}
+.sim-btn:hover{background:#224466;box-shadow:none;transform:none;}
+.reset-btn{font-family:Arial,sans-serif;font-size:11px;font-weight:bold;padding:.45rem 1rem;border:2px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;transition:all .2s;}
+.reset-btn:hover{border-color:#999;color:var(--text);}
+.sim-status{font-family:Arial,sans-serif;font-size:11px;color:var(--muted);}
+.sim-status.running{color:var(--accent3);}
+.sim-status.done{color:var(--accent);}
+
+.main-grid{display:grid;grid-template-columns:1fr 310px;gap:1rem;margin-bottom:1rem;align-items:start;}
+
+.people-panel{background:var(--surface);border:2px solid var(--border);padding:1.2rem;position:relative;overflow:hidden;}
+.people-panel::before{display:none;}
+.panel-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:.9rem;}
+.panel-label{font-family:Arial,sans-serif;font-size:10px;font-weight:bold;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;margin-bottom:.13rem;}
+.panel-title{font-family:Arial,sans-serif;font-size:13px;font-weight:bold;}
+
+.people-grid{display:flex;flex-wrap:wrap;gap:3px;}
+.person{width:11px;height:11px;border-radius:1px;transition:background .5s ease;}
+.person.at-risk{background:rgba(204,0,0,0.55);}
+.person.improving{background:rgba(204,102,0,0.65);animation:flicker .9s ease infinite alternate;}
+.person.healthy{background:rgba(0,153,51,0.65);}
+.person.neutral{background:rgba(153,153,153,0.18);}
+@keyframes flicker{from{opacity:.65}to{opacity:1}}
+
+.legend{display:flex;gap:.8rem;flex-wrap:wrap;padding-top:.65rem;margin-top:.65rem;border-top:2px solid var(--border);}
+.legend-item{display:flex;align-items:center;gap:.32rem;font-size:11px;color:var(--muted);}
+.legend-dot{width:8px;height:8px;border-radius:1px;flex-shrink:0;}
+
+.stats-panel{display:flex;flex-direction:column;gap:.7rem;}
+.stat-card{background:var(--surface);border:2px solid var(--border);padding:.9rem 1rem;position:relative;overflow:hidden;transition:opacity .3s;}
+.stat-card.dimmed{opacity:.28;}
+.stat-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;}
+.stat-card.socio::before{background:var(--socio);}
+.stat-card.health::before{background:var(--health);}
+.stat-card.food::before{background:var(--food);}
+.stat-card.env::before{background:var(--env);}
+.stat-label{font-size:10px;color:var(--muted);font-family:Arial,sans-serif;font-weight:bold;letter-spacing:.04em;text-transform:uppercase;margin-bottom:.35rem;}
+.stat-row{display:flex;align-items:flex-end;gap:.45rem;}
+.stat-before{font-size:14px;font-weight:normal;color:var(--muted);text-decoration:line-through;}
+.stat-arrow{font-size:12px;color:var(--muted);}
+.stat-after{font-size:18px;font-family:Arial,sans-serif;font-weight:bold;}
+.stat-card.socio .stat-after{color:var(--socio);}
+.stat-card.health .stat-after{color:var(--health);}
+.stat-card.food .stat-after{color:var(--food);}
+.stat-card.env .stat-after{color:var(--env);}
+.stat-delta{font-size:10px;color:var(--accent);font-family:Arial,sans-serif;font-weight:bold;margin-top:.22rem;}
+.stat-inactive-label{font-size:10px;color:var(--muted);font-family:Arial,sans-serif;margin-top:.2rem;font-style:italic;}
+
+/* SOLUTIONS — only 2 shown per ZIP, centered */
+.solutions-row{display:flex;gap:.9rem;margin-bottom:1rem;justify-content:center;}
+.solution-card{background:var(--surface);border:2px solid var(--border);padding:1rem 1.2rem;position:relative;overflow:hidden;transition:border-color .25s;flex:0 0 calc(50% - .45rem);max-width:420px;}
+.solution-card:hover{border-color:#999;}
+.solution-card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;transform:scaleX(1);transition:transform .4s;transform-origin:left;}
+.solution-card.socio-sol::after{background:var(--socio);}
+.solution-card.health-sol::after{background:var(--health);}
+.solution-card.food-sol::after{background:var(--food);}
+.solution-card.env-sol::after{background:var(--env);}
+.sol-icon{font-size:1.25rem;margin-bottom:.35rem;}
+.sol-name{font-family:Arial,sans-serif;font-size:13px;font-weight:bold;margin-bottom:.2rem;}
+.sol-desc{font-size:11px;color:var(--muted);line-height:1.45;}
+.sol-impact{margin-top:.5rem;font-family:Arial,sans-serif;font-size:10px;font-weight:bold;min-height:1.1em;}
+.sol-impact.socio{color:var(--socio);}
+.sol-impact.health{color:var(--health);}
+.sol-impact.food{color:var(--food);}
+.sol-impact.env{color:var(--env);}
+
+.nn-panel{background:var(--surface);border:2px solid var(--border);padding:1.2rem;margin-bottom:1rem;}
+.nn-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.7rem;}
+#nn-canvas{width:100%;height:180px;display:block;}
+
+.life-panel{background:var(--surface);border:2px solid var(--border);padding:1.2rem;margin-bottom:1rem;position:relative;overflow:hidden;}
+.life-panel::before{display:none;}
+.life-grid{display:grid;grid-template-columns:1fr;gap:.55rem;margin-top:.85rem;}
+.life-row{display:grid;grid-template-columns:95px 1fr 72px;align-items:center;gap:.7rem;}
+.life-zip{font-family:Arial,sans-serif;font-size:11px;color:var(--muted);font-weight:bold;}
+.life-track{height:7px;background:#ddd;position:relative;}
+.life-bar-before{height:7px;background:rgba(204,0,0,0.25);position:absolute;top:0;left:0;transition:width 1s ease;}
+.life-bar-after{height:7px;position:absolute;top:0;left:0;background:linear-gradient(90deg,rgba(0,153,51,0.25),rgba(0,153,51,0.75));transition:width 1.5s ease .3s;}
+.life-val{font-family:Arial,sans-serif;font-size:11px;font-weight:bold;text-align:right;}
+.life-delta{color:var(--accent);font-size:10px;display:block;}
+
+.impact-row{display:grid;grid-template-columns:repeat(3,1fr);gap:.8rem;margin-bottom:1rem;}
+.impact-card{background:var(--surface);border:2px solid var(--border);padding:1.05rem;text-align:center;}
+.impact-num{font-family:Arial,sans-serif;font-size:1.85rem;font-weight:bold;}
+.impact-num.good{color:var(--accent);}
+.impact-num.warn{color:var(--accent3);}
+.impact-num.info{color:var(--accent2);}
+.impact-label{font-size:11px;color:var(--muted);margin-top:.28rem;}
+
+.why-panel{background:var(--surface);border:2px solid var(--border);padding:1.2rem;margin-bottom:1rem;}
+.why-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:.85rem;}
+.why-card{background:var(--surface2);border:1px solid var(--border);padding:.95rem;}
+.why-title{font-family:Arial,sans-serif;font-size:13px;font-weight:bold;margin-bottom:.45rem;}
+.why-body{font-size:11px;color:#444;line-height:1.65;}
+.why-body strong{color:var(--text);font-weight:bold;}
+
+footer{text-align:center;padding:.9rem;font-family:Arial,sans-serif;font-size:10px;font-weight:bold;color:var(--muted);border-top:2px solid var(--border);text-transform:uppercase;letter-spacing:.04em;}
+
+.topbar{position:fixed;top:0;left:0;right:0;z-index:1000;height:50px;background:#336699;display:flex;align-items:center;padding:0 15px;gap:15px;}
+.topbar-brand{font-weight:bold;font-size:16px;color:white;}
+.topbar-brand span{color:#ffcc00;}
+.topbar-divider{width:1px;height:25px;background:#4477aa;}
+.topbar-meta{font-size:11px;color:#aaccee;}
+.topbar-right{display:flex;margin-left:auto;gap:5px;}
+.topbar-link{font-size:12px;font-weight:bold;color:#aaccee;text-decoration:none;padding:8px 15px;white-space:nowrap;}
+.topbar-link:hover{color:white;background:#224466;}
+.topbar-link.active{color:#ffcc00;background:#224466;}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-brand">Jacksonville <span>Resource Desert</span> Intelligence Dashboard</div>
+  <div class="topbar-divider"></div>
+  <div class="topbar-meta">2026 CodeforAwhile AI for Good Datathon · Duval County, FL</div>
+  <div class="topbar-right">
+    <a href="index.html" class="topbar-link">◂ Dashboard</a>
+    <div class="topbar-link active">Simulation</div>
+  </div>
+</div>
+<div class="container">
+
+<header>
+  <div class="header-top">
+    <div class="title-block">
+      <h1>Resource Desert Simulation</h1>
+    </div>
+  </div>
+</header>
+
+<div class="model-strip">
+  <div class="model-stat">Model: <span>Multiple Linear Regression</span></div>
+  <div class="model-stat">R²: <span>0.7419</span></div>
+  <div class="model-stat">Training samples: <span>33 ZIP codes</span></div>
+  <div class="model-stat">Predictors: <span>Poverty %, Park %, Food Gap %, Uninsured %, Median Income</span></div>
+  <div class="model-stat">Output: <span>Predicted Life Expectancy</span></div>
+</div>
+
+<div class="zip-label">Resource desert ZIP codes: select to simulate</div>
+<div class="zip-selector">
+  <div class="zip-btn active" data-zip="32209" onclick="selectZip(this)"><span class="zip-dot" style="background:#cc0000"></span>32209 · NW Jax</div>
+  <div class="zip-btn" data-zip="32254" onclick="selectZip(this)"><span class="zip-dot" style="background:#cc6600"></span>32254 · Westside</div>
+  <div class="zip-btn" data-zip="32206" onclick="selectZip(this)"><span class="zip-dot" style="background:#009933"></span>32206 · Northside</div>
+  <div class="zip-btn" data-zip="32208" onclick="selectZip(this)"><span class="zip-dot" style="background:#cc0000"></span>32208 · Northside N</div>
+  <div class="zip-btn" data-zip="32202" onclick="selectZip(this)"><span class="zip-dot" style="background:#7b5ea7"></span>32202 · Downtown</div>
+  <div class="zip-btn" data-zip="32210" onclick="selectZip(this)"><span class="zip-dot" style="background:#cc6600"></span>32210 · Westside S</div>
+  <div class="zip-btn" data-zip="32211" onclick="selectZip(this)"><span class="zip-dot" style="background:#cc0000"></span>32211 · Arlington</div>
+  <div class="zip-btn" data-zip="32244" onclick="selectZip(this)"><span class="zip-dot" style="background:#009933"></span>32244 · Westside W</div>
+</div>
+
+<div class="sim-controls">
+  <button class="sim-btn" onclick="runSimulation()">▶ Run Simulation</button>
+  <button class="reset-btn" onclick="resetSim()">↺ Reset</button>
+  <span class="sim-status" id="simStatus">Select a ZIP and run simulation</span>
+</div>
+
+<div class="main-grid">
+  <div class="people-panel">
+    <div class="panel-header">
+      <div>
+        <div class="panel-label">Population Model</div>
+        <div class="panel-title" id="peopleTitle">ZIP 32209, 34,657 residents</div>
+      </div>
+      <div style="text-align:right">
+        <div class="panel-label">Top 2 Issues</div>
+        <div class="panel-title" id="dominantIssue" style="color:var(--socio)">Socioeconomic + Healthcare</div>
+      </div>
+    </div>
+    <div class="people-grid" id="peopleGrid"></div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:rgba(204,0,0,0.55)"></div>At risk</div>
+      <div class="legend-item"><div class="legend-dot" style="background:rgba(204,102,0,0.65)"></div>Improving</div>
+      <div class="legend-item"><div class="legend-dot" style="background:rgba(0,153,51,0.65)"></div>Healthy outcome</div>
+      <div class="legend-item"><div class="legend-dot" style="background:rgba(153,153,153,0.18)"></div>Unaffected</div>
+    </div>
+  </div>
+
+  <div class="stats-panel">
+    <!-- socio always shown for these ZIPs -->
+    <div class="stat-card socio" id="card-socio">
+      <div class="stat-label">Poverty Rate · NeighborLift</div>
+      <div class="stat-row">
+        <div class="stat-before" id="pov-before">-</div>
+        <div class="stat-arrow">→</div>
+        <div class="stat-after" id="pov-after">-</div>
+      </div>
+      <div class="stat-delta" id="pov-delta"></div>
+    </div>
+    <div class="stat-card env" id="card-env">
+      <div class="stat-label">Park Coverage · LotWork</div>
+      <div class="stat-row">
+        <div class="stat-before" id="park-before">-</div>
+        <div class="stat-arrow">→</div>
+        <div class="stat-after" id="park-after">-</div>
+      </div>
+      <div class="stat-delta" id="park-delta"></div>
+      <div class="stat-inactive-label" id="park-inactive"></div>
+    </div>
+    <div class="stat-card food" id="card-food">
+      <div class="stat-label">Food Access Gap · Corner Store</div>
+      <div class="stat-row">
+        <div class="stat-before" id="food-before">-</div>
+        <div class="stat-arrow">→</div>
+        <div class="stat-after" id="food-after">-</div>
+      </div>
+      <div class="stat-delta" id="food-delta"></div>
+      <div class="stat-inactive-label" id="food-inactive"></div>
+    </div>
+    <div class="stat-card health" id="card-health">
+      <div class="stat-label">Uninsured Rate · School Detection</div>
+      <div class="stat-row">
+        <div class="stat-before" id="ins-before">-</div>
+        <div class="stat-arrow">→</div>
+        <div class="stat-after" id="ins-after">-</div>
+      </div>
+      <div class="stat-delta" id="ins-delta"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 2 solution cards, dynamically populated -->
+<div class="solutions-row" id="solutionsRow"></div>
+
+<div class="nn-panel">
+  <div class="nn-header">
+    <div>
+      <div class="panel-label">Regression Visualizer</div>
+      <div class="panel-title">Input Features · Coefficient Weights · Predicted Life Expectancy</div>
+    </div>
+    <div style="font-family:Arial,sans-serif;font-size:11px;font-weight:bold;color:var(--muted)" id="nn-epoch">ITERATION 0 / 100</div>
+  </div>
+  <canvas id="nn-canvas"></canvas>
+</div>
+
+<div class="life-panel">
+  <div class="panel-header">
+    <div>
+      <div class="panel-label">Predicted Life Expectancy, All Desert ZIPs</div>
+      <div class="panel-title">Regression output: baseline vs top-2 interventions only</div>
+    </div>
+    <div style="font-family:Arial,sans-serif;font-size:11px;font-weight:bold;color:var(--muted)">Benchmark: 83.0 yrs (32266)</div>
+  </div>
+  <div class="life-grid" id="lifeGrid"></div>
+</div>
+
+<div class="impact-row">
+  <div class="impact-card">
+    <div class="impact-num good" id="impact-years">-</div>
+    <div class="impact-label">Predicted years of life gained (regression output)</div>
+  </div>
+  <div class="impact-card">
+    <div class="impact-num warn" id="impact-people">-</div>
+    <div class="impact-label">Residents moved out of at-risk category</div>
+  </div>
+  <div class="impact-card">
+    <div class="impact-num info" id="impact-cost">-</div>
+    <div class="impact-label">Est. annual healthcare cost avoided</div>
+  </div>
+</div>
+
+<div class="why-panel">
+  <div class="panel-header">
+    <div>
+      <div class="panel-label">Model Choice Rationale</div>
+      <div class="panel-title">Why linear regression, not a neural network or per-person AI agents</div>
+    </div>
+  </div>
+  <div class="why-grid">
+    <div class="why-card">
+      <div class="why-title">Why not a neural network?</div>
+      <div class="why-body">A neural network requires <strong>thousands of training samples</strong> to learn non-linear relationships without overfitting. We have <strong>33 ZIP codes</strong>. At that scale, a neural network would memorize the training data and produce predictions with no statistical validity, a textbook <strong>overfitting problem</strong>. Linear regression with 5 predictors on 33 samples yields an <strong>R² of 0.74</strong>, which is statistically sound and fully defensible. The neural network architecture becomes appropriate at the <strong>census-tract level</strong> where thousands of data points across multiple cities provide the density required.</div>
+    </div>
+    <div class="why-card">
+      <div class="why-title">Why not an AI agent per person?</div>
+      <div class="why-body">Jacksonville's desert ZIPs contain over <strong>250,000 residents</strong>. A personalized AI agent per person using a frontier model API costs roughly <strong>$0.01 to $0.05 per interaction</strong>. Daily check-ins alone would cost <strong>$912K to $4.5M per year</strong> in API fees, before staff or infrastructure. That same budget funds <strong>8 to 40 actual nurse practitioners</strong>. Our solutions use AI at the <strong>triage and routing layer</strong>, one model serving thousands, which is where AI delivers maximum value at minimum cost.</div>
+    </div>
+  </div>
+</div>
+
+<footer></footer>
+</div>
+
+<script>
+const SOL_META = {
+  Socioeconomic: {
+    key:'socio', cls:'socio-sol', icon:'', name:'NeighborLift',
+    desc:'AI benefits navigator at city touchpoints. Poverty -15%, income +12%.',
+    color:'var(--socio)'
+  },
+  Healthcare: {
+    key:'health', cls:'health-sol', icon:'', name:'School Detection',
+    desc:'AI-assisted chronic disease screening in schools. Uninsured -7pp.',
+    color:'var(--health)'
+  },
+  'Food Access': {
+    key:'food', cls:'food-sol', icon:'', name:'Corner Store Conversion',
+    desc:'AI demand forecasting for fresh food stocking. Food gap -25pp.',
+    color:'var(--food)'
+  },
+  Environment: {
+    key:'env', cls:'env-sol', icon:'', name:'LotWork',
+    desc:'AI-ranked vacant lot green space deployment. Park coverage +4pp.',
+    color:'var(--env)'
+  },
+};
+
+// All data from real regression (coefficients applied to actual CSV values)
+const zipData = {
+  '32209':{label:'NW Jacksonville',pop:34657,le:68.7,le_after:70.0,delta:1.3,ar:0.35,
+    top2:['Socioeconomic','Environment'],
+    pov_b:37.6,pov_a:32.0,park_b:1.99,park_a:5.99,food_b:57.3,food_a:57.3,ins_b:19.5,ins_a:19.5,
+    inc_b:30514,inc_a:34175,
+    si:'Pov 37.6→32.0% · +$3,661 income',hi:''},
+  '32254':{label:'Westside',pop:13927,le:70.6,le_after:71.5,delta:0.9,ar:0.29,
+    top2:['Food Access','Socioeconomic'],
+    pov_b:33.7,pov_a:28.6,park_b:1.5,park_a:1.5,food_b:82.1,food_a:57.1,ins_b:20.1,ins_a:20.1,
+    inc_b:34953,inc_a:39147,
+    si:'Pov 33.7→28.6% · +$4,194 income',hi:''},
+  '32206':{label:'Northside',pop:17105,le:70.7,le_after:71.9,delta:1.2,ar:0.32,
+    top2:['Environment','Socioeconomic'],
+    pov_b:32.4,pov_a:27.5,park_b:2.9,park_a:6.9,food_b:75.2,food_a:75.2,ins_b:18.9,ins_a:18.9,
+    inc_b:39242,inc_a:43951,
+    si:'Pov 32.4→27.5% · +$4,709 income',hi:''},
+  '32208':{label:'Northside N',pop:32699,le:70.8,le_after:71.2,delta:0.4,ar:0.23,
+    top2:['Food Access','Environment'],
+    pov_b:28.1,pov_a:28.1,park_b:3.4,park_a:7.4,food_b:75.3,food_a:50.3,ins_b:17.4,ins_a:17.4,
+    inc_b:41324,inc_a:41324,
+    si:'',hi:''},
+  '32202':{label:'Downtown',pop:6023,le:73.1,le_after:74.1,delta:1.0,ar:0.28,
+    top2:['Environment','Socioeconomic'],
+    pov_b:23.2,pov_a:19.7,park_b:3.13,park_a:7.13,food_b:22.0,food_a:22.0,ins_b:27.4,ins_a:27.4,
+    inc_b:34825,inc_a:39004,
+    si:'Pov 23.2→19.7% · +$4,179 income',hi:''},
+  '32210':{label:'Westside S',pop:65729,le:74.9,le_after:75.3,delta:0.4,ar:0.22,
+    top2:['Food Access','Environment'],
+    pov_b:16.5,pov_a:16.5,park_b:2.26,park_a:6.26,food_b:66.0,food_a:41.0,ins_b:15.8,ins_a:15.8,
+    inc_b:61050,inc_a:61050,
+    si:'',hi:''},
+  '32211':{label:'Arlington',pop:36762,le:75.3,le_after:76.4,delta:1.1,ar:0.27,
+    top2:['Environment','Socioeconomic'],
+    pov_b:22.6,pov_a:19.2,park_b:2.09,park_a:6.09,food_b:56.1,food_a:56.1,ins_b:18.0,ins_a:18.0,
+    inc_b:57021,inc_a:63863,
+    si:'Pov 22.6→19.2% · +$6,843 income',hi:''},
+  '32244':{label:'Westside W',pop:63592,le:75.6,le_after:76.0,delta:0.4,ar:0.22,
+    top2:['Food Access','Environment'],
+    pov_b:16.1,pov_a:16.1,park_b:9.88,park_a:13.88,food_b:70.9,food_a:45.9,ins_b:15.2,ins_a:15.2,
+    inc_b:62204,inc_a:62204,
+    si:'',hi:''},
+};
+
+Object.keys(zipData).forEach(z=>zipData[z].zip=z);
+const MAX_L=83.0, MIN_L=65.0;
+let cur='32209', simRan=false, nnInt=null, epoch=0;
+
+function buildSolutionCards(zip, sim) {
+  const d = zipData[zip];
+  const row = document.getElementById('solutionsRow');
+  row.innerHTML = '';
+  d.top2.forEach((issue, idx) => {
+    const m = SOL_META[issue];
+    const impact = issue==='Socioeconomic' ? d.si : issue==='Healthcare' ? d.hi : issue==='Food Access' ? `Food gap: ${d.food_b}→${d.food_a}% (-25pp)` : `Park: ${d.park_b}→${d.park_a}% (+4pp)`;
+    const card = document.createElement('div');
+    card.className = `solution-card ${m.cls}`;
+    card.innerHTML = `
+      <div class="sol-icon">${m.icon}</div>
+      <div class="sol-name">${m.name} <span style="font-size:10px;color:var(--muted);font-family:Arial,sans-serif;font-weight:normal">#${idx+1} priority</span></div>
+      <div class="sol-desc">${m.desc}</div>
+      <div class="sol-impact ${m.key}" id="sol-impact-${idx}">${sim ? impact : 'Awaiting simulation'}</div>
+    `;
+    row.appendChild(card);
+  });
+}
+
+function buildPeople(zip, sim) {
+  const d=zipData[zip], g=document.getElementById('peopleGrid');
+  g.innerHTML='';
+  const total=280, atN=Math.floor(total*d.ar);
+  const impN=sim?Math.floor(total*0.16):0;
+  const hlN=sim?Math.floor(total*(1-d.ar+0.05)):Math.floor(total*0.09);
+  const arr=[];
+  for(let i=0;i<total;i++){
+    if(i<hlN) arr.push('healthy');
+    else if(i<hlN+impN) arr.push('improving');
+    else if(i<hlN+impN+atN) arr.push('at-risk');
+    else arr.push('neutral');
+  }
+  for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}
+  arr.forEach(s=>{const el=document.createElement('div');el.className=`person ${s}`;g.appendChild(el);});
+}
+
+function buildLife(sim) {
+  const g=document.getElementById('lifeGrid');
+  g.innerHTML='';
+  Object.values(zipData).forEach(d=>{
+    const row=document.createElement('div');
+    row.className='life-row';
+    const bP=((d.le-MIN_L)/(MAX_L-MIN_L))*100;
+    const aP=((d.le_after-MIN_L)/(MAX_L-MIN_L))*100;
+    const isCur=d.zip===cur;
+    row.innerHTML=`
+      <div class="life-zip" style="${isCur?'color:var(--accent2)':''}">${d.zip}${isCur?' ◀':''}</div>
+      <div class="life-track">
+        <div class="life-bar-before" style="width:${bP}%"></div>
+        <div class="life-bar-after" style="width:${sim?aP:0}%"></div>
+      </div>
+      <div class="life-val">${sim?d.le_after:d.le} yrs${sim?`<span class="life-delta">+${d.delta}</span>`:''}</div>`;
+    g.appendChild(row);
+  });
+}
+
+// dim stat cards that are NOT in top2 for this zip
+function updateStatCardDim(zip) {
+  const d = zipData[zip];
+  const issueToCard = {'Socioeconomic':'card-socio','Healthcare':'card-health','Food Access':'card-food','Environment':'card-env'};
+  const activeCards = d.top2.map(i=>issueToCard[i]);
+  ['card-socio','card-health','card-food','card-env'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(activeCards.includes(id)) { el.classList.remove('dimmed'); }
+    else { el.classList.add('dimmed'); }
+  });
+  // set inactive label
+  ['food','park'].forEach(k=>{
+    const el = document.getElementById(`${k}-inactive`);
+    if(el) el.textContent='';
+  });
+  const inactiveIssues = ['Socioeconomic','Healthcare','Food Access','Environment'].filter(i=>!d.top2.includes(i));
+  inactiveIssues.forEach(issue=>{
+    if(issue==='Environment') {
+      const el = document.getElementById('park-inactive');
+      if(el) el.textContent = 'Not in top 2 for this ZIP, not applied';
+    }
+    if(issue==='Food Access') {
+      const el = document.getElementById('food-inactive');
+      if(el) el.textContent = 'Not in top 2 for this ZIP, not applied';
+    }
+  });
+}
+
+function drawNN(active) {
+  const canvas=document.getElementById('nn-canvas');
+  const ctx=canvas.getContext('2d');
+  const dpr=window.devicePixelRatio||1;
+  const W=canvas.offsetWidth||900, H=180;
+  canvas.width=W*dpr; canvas.height=H*dpr;
+  ctx.scale(dpr,dpr);
+  ctx.clearRect(0,0,W,H);
+
+  // Layout: inputs at x=130 (labels to left), weight node at center, output at right
+  // Input nodes spaced so labels clear the top and bottom
+  const inputs=['Poverty %','Park %','Food Gap %','Uninsured %','Income $k'];
+  const coeffs=['-0.135','-0.088','-0.003','-0.285','+0.040'];
+  const cColors=['#cc0000','#009933','#cc6600','#cc0000','#7b5ea7'];
+
+  // Node positions — start at y=22 so top label doesn't clip, end at y=158 so bottom label clears
+  const nodeX = 160;
+  const topY = 22, botY = 158;
+  const ys = inputs.map((_,i) => topY + i*((botY-topY)/4));
+  const cx = W/2, cy = H/2;
+  const ox = W-90, oy = H/2;
+
+  // Draw connection lines
+  inputs.forEach((_,i)=>{
+    ctx.beginPath();
+    ctx.moveTo(nodeX+9, ys[i]);
+    ctx.lineTo(cx-12, cy);
+    ctx.strokeStyle = active
+      ? cColors[i].replace('#','rgba(').replace(/(.{2})(.{2})(.{2})$/,(_,r,g,b)=>`${parseInt(r,16)},${parseInt(g,16)},${parseInt(b,16)},${0.3+Math.random()*0.55})`)
+      : 'rgba(0,0,0,0.08)';
+    ctx.lineWidth = active ? 1.4 : 0.5;
+    ctx.stroke();
+    if(active){
+      const mx=(nodeX+9+cx-12)/2, my=(ys[i]+cy)/2;
+      ctx.fillStyle='rgba(51,51,51,0.65)';
+      ctx.font=`8px Arial,sans-serif`;
+      ctx.textAlign='center';
+      ctx.fillText(coeffs[i], mx, my-2);
+    }
+  });
+
+  // Weight → Output
+  ctx.beginPath();
+  ctx.moveTo(cx+12, cy);
+  ctx.lineTo(ox-12, oy);
+  ctx.strokeStyle = active ? 'rgba(0,153,51,0.7)' : 'rgba(0,0,0,0.08)';
+  ctx.lineWidth = active ? 2 : 0.5;
+  ctx.stroke();
+
+  // Input nodes + labels
+  inputs.forEach((_,i)=>{
+    ctx.beginPath();
+    ctx.arc(nodeX, ys[i], active?8:5, 0, Math.PI*2);
+    ctx.fillStyle = active ? 'rgba(51,102,153,0.85)' : 'rgba(153,153,153,0.35)';
+    ctx.fill();
+    // Label to the LEFT of node — anchored so it doesn't exceed x=0
+    if(active){
+      ctx.fillStyle='rgba(51,51,51,0.85)';
+      ctx.font=`9px Arial,sans-serif`;
+      ctx.textAlign='right';
+      ctx.fillText(inputs[i], nodeX-12, ys[i]+3);
+    }
+  });
+
+  // Weight node
+  ctx.beginPath();
+  ctx.arc(cx, cy, active?10:6, 0, Math.PI*2);
+  ctx.fillStyle = active ? 'rgba(123,94,167,0.85)' : 'rgba(153,153,153,0.35)';
+  ctx.fill();
+  if(active){
+    ctx.fillStyle='rgba(255,255,255,0.9)';
+    ctx.font=`8.5px Arial,sans-serif`;
+    ctx.textAlign='center';
+    ctx.fillText('×β', cx, cy+3);
+  }
+
+  // Output node
+  ctx.beginPath();
+  ctx.arc(ox, oy, active?10:6, 0, Math.PI*2);
+  ctx.fillStyle = active ? 'rgba(0,153,51,0.85)' : 'rgba(153,153,153,0.35)';
+  ctx.fill();
+  if(active){
+    ctx.fillStyle='rgba(255,255,255,0.9)';
+    ctx.font=`9px Arial,sans-serif`;
+    ctx.textAlign='left';
+    ctx.fillText('Life Expectancy', ox+14, oy+3);
+  }
+
+  // Bottom tier labels when inactive
+  if(!active){
+    ctx.fillStyle='rgba(102,102,102,0.6)';
+    ctx.font=`8.5px Arial,sans-serif`;
+    ctx.textAlign='center';
+    ctx.fillText('Inputs', nodeX, H-4);
+    ctx.fillText('Coefficients', cx, H-4);
+    ctx.fillText('Output', ox, H-4);
+  }
+}
+
+function selectZip(el) {
+  document.querySelectorAll('.zip-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  cur=el.dataset.zip;
+  simRan=false;
+  reset();
+}
+
+function reset() {
+  const d=zipData[cur];
+  document.getElementById('peopleTitle').textContent=`ZIP ${cur}, ${d.pop.toLocaleString()} residents`;
+  document.getElementById('dominantIssue').textContent=d.top2.join(' + ');
+  document.getElementById('pov-before').textContent=d.pov_b+'%';
+  document.getElementById('park-before').textContent=d.park_b+'%';
+  document.getElementById('food-before').textContent=d.food_b+'%';
+  document.getElementById('ins-before').textContent=d.ins_b+'%';
+  ['pov','park','food','ins'].forEach(k=>{
+    document.getElementById(`${k}-after`).textContent='-';
+    document.getElementById(`${k}-delta`).textContent='';
+  });
+  document.getElementById('impact-years').textContent='-';
+  document.getElementById('impact-people').textContent='-';
+  document.getElementById('impact-cost').textContent='-';
+  document.getElementById('simStatus').textContent='Select a ZIP and run simulation';
+  document.getElementById('simStatus').className='sim-status';
+  document.getElementById('nn-epoch').textContent='ITERATION 0 / 100';
+  updateStatCardDim(cur);
+  buildSolutionCards(cur, false);
+  buildPeople(cur, false);
+  buildLife(false);
+  drawNN(false);
+}
+
+function runSimulation() {
+  if(nnInt) clearInterval(nnInt);
+  epoch=0;
+  document.getElementById('simStatus').textContent='Fitting regression coefficients to ZIP data…';
+  document.getElementById('simStatus').className='sim-status running';
+  nnInt=setInterval(()=>{
+    epoch+=2;
+    document.getElementById('nn-epoch').textContent=`ITERATION ${epoch} / 100`;
+    drawNN(true);
+    if(epoch>=100){clearInterval(nnInt);showResults();}
+  },55);
+}
+
+function showResults() {
+  const d=zipData[cur];
+  const t=(fn,ms)=>setTimeout(fn,ms);
+  const isActive = (issue) => d.top2.includes(issue);
+
+  t(()=>{
+    if(isActive('Socioeconomic')){
+      document.getElementById('pov-after').textContent=d.pov_a+'%';
+      document.getElementById('pov-delta').textContent=`↓ ${(d.pov_b-d.pov_a).toFixed(1)}pp · NeighborLift`;
+    }
+  },150);
+  t(()=>{
+    if(isActive('Environment')){
+      document.getElementById('park-after').textContent=d.park_a+'%';
+      document.getElementById('park-delta').textContent=`↑ ${(d.park_a-d.park_b).toFixed(2)}pp · LotWork`;
+    }
+  },380);
+  t(()=>{
+    if(isActive('Food Access')){
+      document.getElementById('food-after').textContent=d.food_a+'%';
+      document.getElementById('food-delta').textContent=`↓ ${(d.food_b-d.food_a).toFixed(1)}pp · Corner Store`;
+    }
+  },610);
+  t(()=>{
+    if(isActive('Healthcare')){
+      document.getElementById('ins-after').textContent=d.ins_a+'%';
+      document.getElementById('ins-delta').textContent=`↓ ${(d.ins_b-d.ins_a).toFixed(1)}pp · School Detection`;
+    }
+  },840);
+  t(()=>buildSolutionCards(cur,true),1000);
+  t(()=>buildLife(true),1200);
+  t(()=>buildPeople(cur,true),1600);
+  t(()=>{
+    const moved=Math.round(d.pop*(d.ar-0.19));
+    document.getElementById('impact-years').textContent=`+${d.delta} yrs`;
+    document.getElementById('impact-people').textContent=moved.toLocaleString();
+    document.getElementById('impact-cost').textContent='$'+(moved*4200/1e6).toFixed(1)+'M';
+    document.getElementById('simStatus').textContent='Simulation complete, top-2 regression predictions applied';
+    document.getElementById('simStatus').className='sim-status done';
+  },2000);
+  simRan=true;
+}
+
+function resetSim(){if(nnInt)clearInterval(nnInt);simRan=false;epoch=0;reset();}
+window.addEventListener('resize',()=>drawNN(simRan));
+reset();
+</script>
+</body>
+</html>

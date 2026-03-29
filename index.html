@@ -76,6 +76,12 @@ body {
 }
 .nav-tab:hover { color: white; }
 .nav-tab.active { color: #ffcc00; background: #224466; }
+.topbar-link {
+  font-size: 12px; font-weight: bold; color: #ffcc00;
+  text-decoration: none; padding: 8px 15px;
+  background: #224466; white-space: nowrap;
+}
+.topbar-link:hover { background: #1a3a5c; }
 
 /* MAIN LAYOUT */
 .layout {
@@ -397,6 +403,8 @@ body {
     <button class="nav-tab" onclick="setView('scatter')">Statistical Analysis</button>
     <button class="nav-tab" onclick="setView('chain')">Causal Chain</button>
   </div>
+  <div class="topbar-divider"></div>
+  <a href="jacksonville_simulation6.html" class="topbar-link">Simulation ▸</a>
 </div>
 
 <div class="layout">
